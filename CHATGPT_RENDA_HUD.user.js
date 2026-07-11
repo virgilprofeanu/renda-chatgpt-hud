@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.1.0
+// @version      4.1.1
+// v4.1.1: proba canalului de auto-update (bump tehnic, zero schimbari functionale).
 // v4.1.0: prima versiune pe CANALUL PUBLIC de auto-update (repo GitHub) — continut identic cu v3.3.1 intern (canon per-tura testat 4/4 pe cont live).
 // v3.3.1 (2026-07-11): FIX 2 defecte prinse la TESTUL REAL (CDP pe cont live): (1) CURSA de
 // sincronizare — click-ul pe send in acelasi tick cu execCommand risca trimiterea starii VECHI
