@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.5.0
-// v4.5.0 (canal): reflexe+norme INTREGI (fara taiere) + camp DIRECTIVA CANON in panou (capsula USER DIRECTIVE, salvata local). Identic cu v3.7.0 intern.
+// @version      4.6.0
 // v3.7.0 (2026-07-11, cerere autor): (1) REFLEXE + NORME INTREGI in blocul FULL — scoase ambele
 // taieri (extractie _CANON_EMBED + afisare buildCanonBlock + /canon_select server): formulele apar
 // complet, nu mai sunt trunchiate cu "…". (2) DIRECTIVA CANON in panoul ⚡ — camp NOU, distinct de
@@ -129,6 +128,7 @@
   const PANEL_ID = 'renda-vigilia-pp-panel';
   const CANON_KEY = 'rendaVigiliaCanonOn';     // v3.3: ON/OFF injectie canon per-tura (default ON)
   const UDIR_KEY = 'rendaVigiliaUserDirective'; // v3.7: directiva canon a userului (capsula USER DIRECTIVE)
+  const IDENT_KEY = 'rendaVigiliaSessionIdentity'; // v3.9: identitatea userului (Nume Prenume) — declaratie de sesiune
   const CANON_MARK = '[CANON RENDA';           // marker anti-dubla-injectie in acelasi mesaj
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
@@ -476,7 +476,7 @@
     #${PANEL_ID}.open { display: block; }
     #${PANEL_ID} h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .8px; color: #dfeaff; }
     #${PANEL_ID} .pp-hint { color: #8a93a0; font-size: 10.5px; margin: 2px 0 8px; }
-    #${PANEL_ID} textarea {
+    #${PANEL_ID} textarea, #${PANEL_ID} .pp-ident {
       width: 100%;
       min-height: 84px;
       box-sizing: border-box;
@@ -488,6 +488,7 @@
       border-radius: 8px;
       font: 12px/1.4 'Segoe UI', system-ui, sans-serif;
     }
+    #${PANEL_ID} .pp-ident { min-height: 0; resize: none; }
     #${PANEL_ID} .pp-row { display: flex; gap: 8px; margin: 8px 0 4px; align-items: center; }
     #${PANEL_ID} .pp-row .pp-state { margin-left: auto; font-size: 10.5px; color: #8a93a0; }
     #${PANEL_ID} button.pp-act {
@@ -692,6 +693,10 @@
   function getUserDirective() { try { return localStorage.getItem(UDIR_KEY) || ''; } catch (_) { return ''; } }
   function setUserDirective(t) { try { t ? localStorage.setItem(UDIR_KEY, t) : localStorage.removeItem(UDIR_KEY); } catch (_) {} }
 
+  // v3.9: IDENTITATE SESIUNE (Nume Prenume) — declaratie de deschidere de sesiune/continuum.
+  function getIdent() { try { return localStorage.getItem(IDENT_KEY) || ''; } catch (_) { return ''; } }
+  function setIdent(t) { try { t ? localStorage.setItem(IDENT_KEY, t) : localStorage.removeItem(IDENT_KEY); } catch (_) {} }
+
   function findComposer() { return document.getElementById('prompt-textarea'); }
 
   function insertIntoComposer(text) {
@@ -710,8 +715,17 @@
     const tpls = TEMPLATES.map((t, i) => `<button class="pp-tpl" type="button" data-tpl="${i}">📋 ${t[0]}</button>`).join('');
     panel.innerHTML = `
       <button class="pp-close" type="button" aria-label="Închide">✕</button>
+      <h3>👤 IDENTITATE SESIUNE</h3>
+      <div class="pp-hint">Numele tău (Nume Prenume). La chat NOU se declară în capsula de deschidere: „&lt;Nume&gt;'s session; I answer for the correctness of the data I provide" — chiar dacă nu ai nicio directivă. Rămâne până îl ștergi.</div>
+      <input class="pp-ident" type="text" placeholder="ex. Virgil Profeanu" />
+      <div class="pp-row">
+        <button class="pp-act pp-ident-save" type="button">Salvează identitatea</button>
+        <button class="pp-act danger pp-ident-clear" type="button">Șterge</button>
+        <span class="pp-ident-state"></span>
+      </div>
+      <hr>
       <h3>⚡ PROMPT PERPETUU</h3>
-      <div class="pp-hint">Text directiv scris de tine, inserat automat în composer la fiecare chat NOU — până îl ștergi de aici. Scriptul doar scrie; trimiterea rămâne a ta.</div>
+      <div class="pp-hint">Text directiv scris de tine, inserat automat în composer la fiecare chat NOU — încapsulat ca „SESSION DIRECTIVE" (intro EN) + linie goală după, ca mesajul tău să înceapă dedesubt. Rămâne până îl ștergi de aici. Scriptul doar scrie; trimiterea rămâne a ta.</div>
       <textarea class="pp-text" placeholder="ex. Reguli: zero invenție; separă fapt de interpretare; verdict binar când cer decizie."></textarea>
       <div class="pp-row">
         <button class="pp-act pp-save" type="button">Salvează</button>
@@ -744,6 +758,13 @@
     }
     panel.querySelector('.pp-save').addEventListener('click', () => { setPP(ta.value.trim()); refresh(); });
     panel.querySelector('.pp-clear').addEventListener('click', () => { setPP(''); refresh(); });
+    // v3.9: identitate sesiune
+    const ida = panel.querySelector('.pp-ident');
+    const idstate = panel.querySelector('.pp-ident-state');
+    function refreshIdent() { const v = getIdent(); ida.value = v; idstate.textContent = v ? 'ACTIVĂ — se declară la chat nou' : 'inactivă'; }
+    panel.querySelector('.pp-ident-save').addEventListener('click', () => { setIdent(ida.value.trim()); refreshIdent(); });
+    panel.querySelector('.pp-ident-clear').addEventListener('click', () => { setIdent(''); refreshIdent(); });
+    refreshIdent();
     // v3.7: directiva canon (localStorage -> capsula USER DIRECTIVE)
     const da = panel.querySelector('.pp-dir');
     const dstate = panel.querySelector('.pp-dir-state');
@@ -768,15 +789,34 @@
     const p = location.pathname;
     return p === '/' || p.startsWith('/g/');
   }
+  // v3.8/3.9: deschiderea de sesiune inserata INCAPSULAT in composer, la chat nou, in engleza,
+  // cu o linie goala DUPA (Enter) ca mesajul tau sa inceapa pe rand nou dedesubt. Trei cazuri:
+  //   (A) identitate + directiva perpetua  (B) doar identitate  (C) doar directiva (fara identitate).
+  // Identitatea = declaratie de sesiune/continuum + asumarea corectitudinii datelor introduse.
+  // (composer-ul ProseMirror accepta \n prin execCommand insertText.)
+  function buildSessionOpener(ident, pp) {
+    ident = (ident || '').trim(); pp = (pp || '').trim();
+    if (ident && pp) {
+      return '[SESSION — ' + ident + "'s working session (continuum); I answer for the correctness of the data I provide. "
+        + 'Standing directive for this whole conversation, apply it to every reply below:]\n' + pp + '\n\n';
+    }
+    if (ident) {
+      return '[SESSION — ' + ident + "'s working session (continuum); I answer for the correctness of the data I provide.]\n\n";
+    }
+    // doar directiva (comportamentul v3.8)
+    return '[SESSION DIRECTIVE — a standing instruction I set for this whole conversation (continuum); '
+      + 'apply it to every reply below, alongside answering my request]\n' + pp + '\n\n';
+  }
   function autoInsertPerpetual() {
     if (!isNewChatPage()) { ppInsertedHere = false; return; }
     if (ppInsertedHere) return;
+    const ident = getIdent();
     const pp = getPP();
-    if (!pp) return;
+    if (!ident && !pp) return;                              // nimic de declarat
     const ed = findComposer();
     if (!ed) return;
     if ((ed.textContent || '').trim() !== '') { ppInsertedHere = true; return; }
-    if (insertIntoComposer(pp)) ppInsertedHere = true;
+    if (insertIntoComposer(buildSessionOpener(ident, pp))) ppInsertedHere = true;
   }
 
   // === v3.3: CANON PER-TURA (echivalentul hook-ului UserPromptSubmit de la Claude) ===
