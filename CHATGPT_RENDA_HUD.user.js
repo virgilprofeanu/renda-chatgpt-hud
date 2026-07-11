@@ -1,9 +1,24 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.0.0
-// v4.0.0: canal de AUTO-UPDATE — Tampermonkey verifica @updateURL (repo public GitHub)
-// si instaleaza singur versiunile noi; publicarea = git push in repo (soluia unica, creatorul = user 0).
+// @version      4.1.0
+// v4.1.0: prima versiune pe CANALUL PUBLIC de auto-update (repo GitHub) — continut identic cu v3.3.1 intern (canon per-tura testat 4/4 pe cont live).
+// v3.3.1 (2026-07-11): FIX 2 defecte prinse la TESTUL REAL (CDP pe cont live): (1) CURSA de
+// sincronizare — click-ul pe send in acelasi tick cu execCommand risca trimiterea starii VECHI
+// (ProseMirror/React sincronizeaza asincron) => input-event + 140ms inainte de click; (2) callback
+// GM THROTTLE-uit in tab de fundal (lectia 5) lasa canonBusy blocat si a doua trimitere trecea RAW
+// pe langa garda => watchdog 2.5s + PREFETCH-ON-INPUT (selectia se ia in timpul tastarii, la Enter
+// e cache-hit SINCRON) + re-gasirea composer-ului la callback + garda de stare (text schimbat/SPA
+// navigat => NU injecta orbeste, badge onest).
+// v3.3.0 (2026-07-11, cerere autor): CANON PER-TURA — echivalentul hook-ului UserPromptSubmit de la
+// Claude, pe chatgpt.com: la FIECARE trimitere, textul din composer e trimis DOAR la serverul HUD
+// local (127.0.0.1:8765/canon_select, care ruleaza CHIAR vigilia_router.pick_reflexes/pick_norme —
+// zero drift de selector) iar blocul [CANON RENDA] (3 reflexe VIGILIA + 3 norme ELEAT potrivite
+// cererii) e ADAUGAT la finalul mesajului inainte de trimitere. BUTON ⚖ Canon ON/OFF in nav
+// (suprimare pentru teste A/B — comportament liber vs canon); linia de selectie vizibila in nav.
+// Fail-open: server oprit -> mesajul pleaca NEatins + badge "canon: HUD offline". AMENDAMENT DE
+// CONFIDENTIALITATE fata de v3_cl: cand CANON e ON, textul TASTAT DE TINE in composer (doar el,
+// nu conversatia) pleaca spre 127.0.0.1 (masina proprie) pentru selectie; OFF = zero trafic nou.
 // v3.2.2 (2026-07-11): FIX sidebar (lista de chaturi/sectiuni cu flapping) + robustete la shell-ul
 // schimbator ChatGPT. Doua schimbari structurale, probate live pe /c/..., home si /plugins:
 // (1) ROOT DETERMINIST: containerul aplicatiei = stramosul lui <main> direct sub <body>
@@ -44,14 +59,14 @@
 // il forta position:relative cu inaltimea viewportului => aplicatia reala era impinsa sub ecran
 // (pagina neagra la montare si la pliere). v2: fallback = cel mai mare DIV vizibil din body
 // (excluzand overlay-urile), cu marcaj unic (curata clasa de pe alte noduri la fiecare re-scan).
-// @updateURL    https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/CHATGPT_RENDA_HUD.user.js
-// @downloadURL  https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/CHATGPT_RENDA_HUD.user.js
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @connect      127.0.0.1
 // @connect      localhost
+// @updateURL    https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/CHATGPT_RENDA_HUD.user.js
+// @downloadURL  https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/CHATGPT_RENDA_HUD.user.js
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -68,6 +83,7 @@
     commandSubtitle: 'Navigăm complexitate · Cartografiem sens',
     rendaHudUrl: 'http://localhost:8765/',
     sysmonUrl: 'http://127.0.0.1:8765/sysmon',
+    canonUrl: 'http://127.0.0.1:8765/canon_select',
     sysmonIntervalMs: 2000,
     links: [
       ['Chat', '/'],
@@ -86,6 +102,8 @@
   const STORAGE_KEY = 'rendaVigiliaHudCollapsed';
   const PP_KEY = 'rendaVigiliaPerpetualPrompt';
   const PANEL_ID = 'renda-vigilia-pp-panel';
+  const CANON_KEY = 'rendaVigiliaCanonOn';     // v3.3: ON/OFF injectie canon per-tura (default ON)
+  const CANON_MARK = '[CANON RENDA';           // marker anti-dubla-injectie in acelasi mesaj
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -403,6 +421,11 @@
     }
     #${HUD_ID} .rv-pp-btn:hover { background: rgba(186,117,23,.14); border-color: var(--rv-amber); }
     #${HUD_ID} .rv-pp-btn.on { color: #ffd27a; border-color: var(--rv-amber); background: rgba(186,117,23,.18); }
+    #${HUD_ID} .rv-canon-btn.on { color: #8fd3ff; border-color: var(--rv-blue); background: rgba(55,138,221,.18); }
+    #${HUD_ID} .rv-canon-line {
+      font-size: 10px; color: var(--rv-text-2); max-width: 360px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
 
     /* v3.2: panoul PLUTITOR (sub banda, nu impinge nimic) */
     #${PANEL_ID} {
@@ -588,6 +611,8 @@
       <nav class="rv-nav" aria-label="Navigare RENDA ChatGPT">
         <span class="rv-nav-label">pagini:</span>${navLinks}
         <button class="rv-pp-btn" type="button" title="Prompt perpetuu + șabloane RENDA">⚡ Prompt</button>
+        <button class="rv-pp-btn rv-canon-btn" type="button" title="CANON per-tură: la fiecare trimitere, blocul [CANON RENDA] (reflexe VIGILIA + norme ELEAT selectate de serverul HUD local) se adaugă la mesaj. OFF = comportament liber (teste A/B).">⚖ Canon</button>
+        <span class="rv-canon-line" data-rv-canon>canon: —</span>
         <a class="renda" href="${CONFIG.rendaHudUrl}" target="_blank" rel="noopener">◉ RENDA HUD ↗</a>
       </nav>
       <button class="rv-collapse" type="button" title="Pliază HUD-ul" aria-label="Pliază HUD-ul">−</button>
@@ -703,6 +728,171 @@
     if (!ed) return;
     if ((ed.textContent || '').trim() !== '') { ppInsertedHere = true; return; }
     if (insertIntoComposer(pp)) ppInsertedHere = true;
+  }
+
+  // === v3.3: CANON PER-TURA (echivalentul hook-ului UserPromptSubmit de la Claude) ===
+  // La fiecare trimitere (Enter sau butonul de send), textul TASTAT e trimis serverului HUD local
+  // (/canon_select ruleaza vigilia_router.pick_reflexes + pick_norme — ACELASI selector ca la Claude),
+  // iar blocul [CANON RENDA] se adauga la FINALUL mesajului inainte de trimitere. Fail-open: server
+  // oprit / timeout -> mesajul pleaca NEatins. Butonul ⚖ Canon = suprimare (teste A/B).
+  function getCanonOn() { try { return localStorage.getItem(CANON_KEY) !== 'false'; } catch (_) { return true; } }
+  function setCanonOn(v) { try { localStorage.setItem(CANON_KEY, String(!!v)); } catch (_) {} }
+
+  function setCanonLine(hud, text, ok) {
+    const n = hud.querySelector('[data-rv-canon]');
+    if (n) { n.textContent = text; n.style.color = ok ? '' : '#e0b24c'; }
+  }
+
+  function gmCanonSelect(text, cb) {
+    const gm = (typeof GM_xmlhttpRequest === 'function') ? GM_xmlhttpRequest
+      : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest : null;
+    if (!gm) return cb(null);
+    gm({
+      method: 'GET',
+      url: CONFIG.canonUrl + '?q=' + encodeURIComponent(String(text).slice(0, 2000)),
+      timeout: 900,
+      onload: (res) => { try { const d = JSON.parse(res.responseText); cb(d && d.ok ? d : null); } catch (_) { cb(null); } },
+      onerror: () => cb(null),
+      ontimeout: () => cb(null)
+    });
+  }
+
+  function buildCanonBlock(d) {
+    const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+    const lines = ['', '', CANON_MARK + ' · reflexe+norme selectate pentru această cerere — aplică-le ca proces și lentilă; la conflict R01 ZERO INVENȚIE prevalează]'];
+    (d.reflexe || []).forEach((r) => {
+      lines.push('REFLEX ' + r.code + ' ' + cut(r.axis, 60) + ' | DPI: ' + cut(r.dpi, 150) + ' | DNI: ' + cut(r.dni, 150));
+    });
+    (d.norme || []).forEach((n) => {
+      lines.push('NORMA [' + n.id + '] ' + cut(n.name, 70) + ' — ' + cut(n.formula, 170) + ' (' + (n.why === 'zi' ? 'rotație/zi' : 'potrivire') + ')');
+    });
+    return lines.join('\n');
+  }
+
+  function canonSummary(d) {
+    const r = (d.reflexe || []).map((x) => x.code).join('·');
+    const n = (d.norme || []).map((x) => x.id).join('·');
+    return 'canon: ' + r + ' + ' + n;
+  }
+
+  function moveCursorToEnd(ed) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(ed);
+      range.collapse(false);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (_) {}
+  }
+
+  function findSendButton() {
+    return document.querySelector('button[data-testid="send-button"]')
+        || document.querySelector('#composer-submit-button')
+        || document.querySelector('button[aria-label*="Send" i], button[aria-label*="Trimite" i]');
+  }
+
+  let canonBusy = false;    // injectia e in curs (asteptam serverul)
+  let canonBypass = false;  // urmatoarea trimitere trece NEinterceptata (re-dispatch programatic / fail-open)
+  let canonBusyWatchdog = 0;
+  // v3.3.1: PREFETCH-ON-INPUT — selectia se ia DIN TIMP (cat userul tasteaza), ca la Enter sa fie
+  // cache-hit SINCRON (fara gaura asincrona in care tab-ul de fundal throttle-uieste callback-ul GM).
+  const canonCache = {key: '', data: null, ts: 0};
+
+  function cacheKey(text) { return text.length + ':' + text.slice(0, 48) + ':' + text.slice(-24); }
+
+  function prefetchCanon() {
+    if (!getCanonOn()) return;
+    const ed = findComposer();
+    if (!ed) return;
+    const text = (ed.textContent || '').trim();
+    if (!text || text.includes(CANON_MARK)) return;
+    const k = cacheKey(text);
+    if (canonCache.key === k && canonCache.data && Date.now() - canonCache.ts < 20000) return;
+    gmCanonSelect(text, (d) => {
+      if (d) { canonCache.key = k; canonCache.data = d; canonCache.ts = Date.now(); }
+    });
+  }
+
+  function wireCanonIntercept(hud) {
+    function proceedSend(ed) {
+      canonBypass = true;
+      // sincronizarea ProseMirror/React: input-event + un tick INAINTE de click pe send —
+      // click-ul in acelasi tick cu execCommand risca sa trimita starea VECHE (cursa reala, prinsa la test)
+      try { ed.dispatchEvent(new InputEvent('input', {bubbles: true})); } catch (_) {}
+      setTimeout(() => {
+        const btn = findSendButton();
+        if (btn) { btn.click(); return; }
+        try {
+          ed.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}));
+        } catch (_) { canonBypass = false; }
+      }, 140);
+    }
+    function injectAndSend(hud2, d, expectText) {
+      const ed = findComposer();                           // RE-gaseste composer-ul (SPA-ul il poate inlocui)
+      if (!ed) { setCanonLine(hud2, 'canon: composer disparut — netrimis', false); return; }
+      const now = (ed.textContent || '').trim();
+      if (!now || now.includes(CANON_MARK)) { setCanonLine(hud2, 'canon: stare schimbata — netrimis', false); return; }
+      if (expectText && now !== expectText) { setCanonLine(hud2, 'canon: text schimbat intre timp — reia Enter', false); return; }
+      ed.focus();
+      moveCursorToEnd(ed);
+      let injected = false;
+      try { injected = document.execCommand('insertText', false, buildCanonBlock(d)); } catch (_) {}
+      setCanonLine(hud2, injected ? canonSummary(d) : 'canon: injectie esuata — trimis LIBER', !!injected);
+      proceedSend(ed);
+    }
+    function handleAttempt(e) {
+      if (canonBypass) { canonBypass = false; return; }   // trimiterea noastra programatica / fail-open
+      if (!getCanonOn() || canonBusy) return;
+      const ed = findComposer();
+      if (!ed) return;
+      const text = (ed.textContent || '').trim();
+      if (!text) return;
+      if (text.includes(CANON_MARK)) return;               // deja injectat in acest mesaj
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // CACHE-HIT (calea normala, sincrona): selectia e deja luata in timpul tastarii
+      if (canonCache.data && canonCache.key === cacheKey(text) && Date.now() - canonCache.ts < 20000) {
+        injectAndSend(hud, canonCache.data, text);
+        return;
+      }
+      canonBusy = true;
+      clearTimeout(canonBusyWatchdog);
+      canonBusyWatchdog = setTimeout(() => { canonBusy = false; }, 2500);   // anti-blocaj: callback pierdut != garda blocata
+      gmCanonSelect(text, (d) => {
+        canonBusy = false;
+        clearTimeout(canonBusyWatchdog);
+        if (!d) {                                          // fail-open: pleaca neatins + badge onest
+          setCanonLine(hud, 'canon: HUD offline — mesaj trimis LIBER', false);
+          proceedSend(findComposer() || ed);
+          return;
+        }
+        injectAndSend(hud, d, text);
+      });
+    }
+    // v3.3.1: prefetch pe tastare (debounce) — la Enter selectia e deja in cache (cale sincrona)
+    let ppDeb = 0;
+    document.addEventListener('input', (e) => {
+      const ed = findComposer();
+      if (!ed || !e.target || (e.target !== ed && !(ed.contains && ed.contains(e.target)))) return;
+      clearTimeout(ppDeb);
+      ppDeb = setTimeout(prefetchCanon, 500);
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+      const ed = findComposer();
+      if (!ed) return;
+      const a = document.activeElement;
+      if (a !== ed && !(ed.contains && ed.contains(a))) return;
+      handleAttempt(e);
+    }, true);
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      const btn = t.closest('button[data-testid="send-button"], #composer-submit-button');
+      if (!btn) return;
+      handleAttempt(e);
+    }, true);
   }
 
   // v3_cl: monitor CPU/RAM live din serverul HUD local (/sysmon). GM_xmlhttpRequest ocolește CORS
@@ -895,6 +1085,21 @@
     const panel = buildPanel(hud);
     hud.querySelector('.rv-pp-btn')?.addEventListener('click', () => panel.classList.toggle('open'));
     setInterval(autoInsertPerpetual, 1200);
+
+    // v3.3: CANON per-tura — buton ⚖ (ON/OFF, persistat) + interceptarea trimiterii
+    const canonBtn = hud.querySelector('.rv-canon-btn');
+    function refreshCanonBtn() {
+      const on = getCanonOn();
+      if (canonBtn) canonBtn.classList.toggle('on', on);
+      setCanonLine(hud, on ? 'canon: ON — se selectează la trimitere' : 'canon: OFF — comportament liber', true);
+    }
+    canonBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setCanonOn(!getCanonOn());
+      refreshCanonBtn();
+    });
+    refreshCanonBtn();
+    wireCanonIntercept(hud);
 
     const bodyObserver = new MutationObserver(() => {
       findAndMarkRoot();

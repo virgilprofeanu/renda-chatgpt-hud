@@ -2,12 +2,21 @@
 
 Carcasă vizuală RENDA/VIGILIA peste `chatgpt.com`: bandă HUD compactă (78px) cu câmp neural animat,
 navigare rapidă, monitor CPU/RAM (opțional, din HUD-ul local RENDA), **prompt perpetuu** (text directiv
-inserat automat la fiecare chat nou, până îl ștergi) și **șabloane de prompt predefinite**.
+inserat automat la fiecare chat nou, până îl ștergi), **șabloane de prompt predefinite** și
+**canon per-tură ⚖** (opțional: la fiecare mesaj trimis, un bloc de reguli RENDA — reflexe + norme
+potrivite cererii — se adaugă automat la finalul mesajului; buton ON/OFF în bandă).
 
 **Confidențialitate:** scriptul NU citește și NU transmite conversațiile. Zero cereri de rețea către
 terți (singura comunicare opțională: `GET http://127.0.0.1:8765/sysmon` — HUD-ul local de pe propria
-mașină, dacă există). Singura persistență: două chei în `localStorage` (starea de pliere + promptul
-perpetuu). Scriptul doar SCRIE în composer la cererea ta — nu trimite niciodată mesaje singur.
+mașină, dacă există). Singura persistență: câteva chei în `localStorage` (pliere, prompt perpetuu,
+starea Canon). Scriptul doar SCRIE în composer la cererea ta — nu trimite niciodată mesaje singur.
+
+**Confidențialitate Canon ⚖ (funcție opțională):** cu Canon **ON**, textul pe care ÎL TASTEZI în
+composer (doar el — niciodată conversația sau răspunsurile) este trimis către `127.0.0.1:8765`
+(serverul HUD RENDA de pe **propria ta mașină**) pentru selecția regulilor potrivite. Nimic nu
+părăsește calculatorul tău. Dacă NU ai HUD-ul RENDA local, funcția e inertă — fail-open: mesajul
+pleacă neatins, iar banda arată onest „canon: HUD offline". Cu Canon **OFF** (un click pe ⚖):
+zero trafic nou, comportament complet liber.
 
 ## Instalare (Chrome)
 
