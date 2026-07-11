@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.6.0
+// @version      4.7.0
 // v3.7.0 (2026-07-11, cerere autor): (1) REFLEXE + NORME INTREGI in blocul FULL — scoase ambele
 // taieri (extractie _CANON_EMBED + afisare buildCanonBlock + /canon_select server): formulele apar
 // complet, nu mai sunt trunchiate cu "…". (2) DIRECTIVA CANON in panoul ⚡ — camp NOU, distinct de
@@ -130,6 +130,10 @@
   const UDIR_KEY = 'rendaVigiliaUserDirective'; // v3.7: directiva canon a userului (capsula USER DIRECTIVE)
   const IDENT_KEY = 'rendaVigiliaSessionIdentity'; // v3.9: identitatea userului (Nume Prenume) — declaratie de sesiune
   const CANON_MARK = '[CANON RENDA';           // marker anti-dubla-injectie in acelasi mesaj
+  // v3.10: versiunea + momentul build-ului, AFISATE IN BANDA (auditabilitate: banda arata versiunea
+  // codului care RULEAZA in acest tab — daca difera de ce e in Tampermonkey, tabul e vechi -> reload).
+  const RUNNING_VER = (function () { try { return (GM_info && GM_info.script && GM_info.script.version) || '?'; } catch (_) { return '?'; } })();
+  const BUILD_STAMP = '2026-07-11-16:34:27';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -319,6 +323,7 @@
       text-shadow: 0 0 18px rgba(55,138,221,.30);
     }
     #${HUD_ID} .rv-system { color: var(--rv-text-3); letter-spacing: .5px; }
+    #${HUD_ID} .rv-ver { color: var(--rv-text-3); opacity: .75; margin-left: 8px; font: 10.5px/1 ui-monospace, 'Cascadia Code', Consolas, monospace; letter-spacing: .3px; }
     #${HUD_ID} .rv-status { display: none; }
     #${HUD_ID} .rv-status b { color: var(--rv-green); font-weight: 500; }
 
@@ -619,7 +624,7 @@
         <div class="rv-left">
           <span class="rv-dot" aria-hidden="true"></span>
           <div>
-            <div class="rv-brand-line"><span class="rv-brand">${CONFIG.title}</span><span class="rv-system"> · ${CONFIG.system} · ${CONFIG.subtitle}</span></div>
+            <div class="rv-brand-line"><span class="rv-brand">${CONFIG.title}</span><span class="rv-system"> · ${CONFIG.system} · ${CONFIG.subtitle}</span><span class="rv-ver" title="versiunea codului care RULEAZĂ în acest tab (din Tampermonkey) + momentul build-ului; dacă nu se potrivește cu ce vezi în TM, tabul e vechi → reîncarcă pagina">v${RUNNING_VER} · ${BUILD_STAMP}</span></div>
             <div class="rv-status">● <b data-rv-online>conectat · live</b></div>
           </div>
         </div>
