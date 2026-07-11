@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.7.0
+// @version      4.8.0
+// v4.8.0: icon oficial RENDA (ochiul-V in hexagon-retea, autor Virgil Profeanu) — @icon din repo.
 // v3.7.0 (2026-07-11, cerere autor): (1) REFLEXE + NORME INTREGI in blocul FULL — scoase ambele
 // taieri (extractie _CANON_EMBED + afisare buildCanonBlock + /canon_select server): formulele apar
 // complet, nu mai sunt trunchiate cu "…". (2) DIRECTIVA CANON in panoul ⚡ — camp NOU, distinct de
@@ -83,6 +84,7 @@
 // il forta position:relative cu inaltimea viewportului => aplicatia reala era impinsa sub ecran
 // (pagina neagra la montare si la pliere). v2: fallback = cel mai mare DIV vizibil din body
 // (excluzand overlay-urile), cu marcaj unic (curata clasa de pe alte noduri la fiecare re-scan).
+// @icon         https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/icon128.png
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
 // @grant        GM_xmlhttpRequest
