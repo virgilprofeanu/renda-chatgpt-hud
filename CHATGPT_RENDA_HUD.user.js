@@ -1,8 +1,12 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.3.0
-// v4.3.0 (canal): INDEPENDENTA DE HUD — canon embedat + selector local (banda merge fara serverul RENDA, pe orice masina). Identic cu v3.5.0 intern.
+// @version      4.4.0
+// v4.4.0 (canal): bloc capsulat (preambul engleza + directiva in capsula proprie + separatoare -----). Identic cu v3.6.0 intern.
+// v3.6.0 (2026-07-11, cerere autor): BLOC CAPSULAT — preambul scurt in engleza care spune AI-ului
+// ca stratul e ADITIONAL promptului userului (aplica-l ca metoda; R01 prevaleaza la conflict) +
+// directiva user in CAPSULA proprie [USER DIRECTIVE — persistent, additional: ...] + canonul in
+// capsula separata, toate delimitate cu separatoare -----. Capsula directivei apare doar daca exista.
 // v3.5.0 (2026-07-11, cerere autor): INDEPENDENTA DE HUD — canonul (50 reflexe + 143 norme + 9
 // semnale de escaladare) e EMBEDAT in script, iar selectia (pick_reflexes/pick_norme) e portata in
 // JS. Cand serverul HUD local raspunde, e folosit (are si directivele); cand tace / alt calculator /
@@ -833,29 +837,44 @@
     });
   }
 
+  // Preambul scurt in engleza: spune AI-ului CE e pachetul asta si cum sa-l trateze.
+  // Capsulat cu separatoare ----- : directiva user (aditionala) intr-o capsula, canonul in alta.
+  const SEP = '-----';
+  const PREAMBLE = 'RENDA ADD-ON — an auto-selected behavioral layer appended to the user message above. ' +
+    'It is ADDITIONAL guidance, not the user\'s request: apply it as method and lens while answering the request. ' +
+    'On any conflict, R01 ZERO-INVENTION (never fabricate facts) prevails.';
+
   function buildCanonBlock(d, mode) {
     const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+    const hasDir = (d.directive || []).length > 0;
+    const out = ['', '', SEP, CANON_MARK + '] ' + PREAMBLE];
+
+    // CAPSULA 1 — DIRECTIVA USER (persistenta, aditionala), doar daca exista
+    if (hasDir) {
+      out.push(SEP);
+      (d.directive || []).forEach((dd) => {
+        out.push('[USER DIRECTIVE — persistent, additional: ' + cut(dd.text, mode === 'compact' ? 220 : 400) + ']');
+      });
+    }
+
+    // CAPSULA 2 — CANON (reflexe + norme selectate)
+    out.push(SEP);
     if (mode === 'compact') {
-      // o linie discreta, doar coduri — canonul complet il cara skill-ul renda-canon-memory (references);
-      // modelul rezolva codurile de acolo. DIR:n = cate directive active insotesc cererea (textul lor integral
-      // e prea lung pt modul compact -> intra DOAR daca exista, prescurtat la 200 char total).
+      // doar codurile — canonul complet il cara skill-ul renda-canon-memory (references)
       const r = (d.reflexe || []).map((x) => x.code).join('·');
       const n = (d.norme || []).map((x) => x.id).join('·');
-      let line = '\n\n' + CANON_MARK + ' ' + r + ' + ' + n + ' — aplică reflexele și normele cu aceste coduri din canonul RENDA; R01 prevalează]';
-      (d.directive || []).forEach((dd) => { line += '\n[DIRECTIVĂ ' + dd.key + ': ' + cut(dd.text, 200) + ']'; });
-      return line;
+      out.push('[CANON (codes) — reflexes ' + r + ' + norms ' + n + '; resolve these from the RENDA canon]');
+    } else {
+      out.push('[CANON — reflexes & norms selected for this request]');
+      (d.reflexe || []).forEach((r) => {
+        out.push('REFLEX ' + r.code + ' ' + cut(r.axis, 60) + ' | DPI: ' + cut(r.dpi, 150) + ' | DNI: ' + cut(r.dni, 150));
+      });
+      (d.norme || []).forEach((n) => {
+        out.push('NORMA [' + n.id + '] ' + cut(n.name, 70) + ' — ' + cut(n.formula, 170) + ' (' + (n.why === 'zi' ? 'daily rotation' : 'lexical match') + ')');
+      });
     }
-    const lines = ['', '', CANON_MARK + ' · reflexe+norme selectate pentru această cerere — aplică-le ca proces și lentilă; la conflict R01 ZERO INVENȚIE prevalează]'];
-    (d.reflexe || []).forEach((r) => {
-      lines.push('REFLEX ' + r.code + ' ' + cut(r.axis, 60) + ' | DPI: ' + cut(r.dpi, 150) + ' | DNI: ' + cut(r.dni, 150));
-    });
-    (d.norme || []).forEach((n) => {
-      lines.push('NORMA [' + n.id + '] ' + cut(n.name, 70) + ' — ' + cut(n.formula, 170) + ' (' + (n.why === 'zi' ? 'rotație/zi' : 'potrivire') + ')');
-    });
-    (d.directive || []).forEach((dd) => {
-      lines.push('DIRECTIVĂ [' + dd.key + ']: ' + cut(dd.text, 400));
-    });
-    return lines.join('\n');
+    out.push(SEP);
+    return out.join('\n');
   }
 
   function canonSummary(d) {
