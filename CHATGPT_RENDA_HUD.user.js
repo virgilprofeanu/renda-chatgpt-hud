@@ -1,9 +1,15 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.1.1
-// v4.1.1: proba canalului de auto-update (bump tehnic, zero schimbari functionale).
-// v4.1.0: prima versiune pe CANALUL PUBLIC de auto-update (repo GitHub) — continut identic cu v3.3.1 intern (canon per-tura testat 4/4 pe cont live).
+// @version      4.2.0
+// v4.2.0 (canal): MOD COMPACT (butonul cicleaza FULL -> COMPACT -> OFF) + DIRECTIVELE persistente in blocul canon — continut identic cu v3.4.0 intern.
+// v3.4.0 (2026-07-11, cerere autor): (1) DIRECTIVELE persistente intra in blocul canon — endpoint-ul
+// /canon_select intoarce si directivele active din directives.json (cheile "all" + "gpt"), blocul
+// le adauga ca linii DIRECTIVA; (2) MOD COMPACT — butonul ⚖ cicleaza FULL -> COMPACT -> OFF:
+// COMPACT = o singura linie discreta cu CODURILE selectiei ([CANON RENDA R##·R##·R## + ID·ID·ID]),
+// gandita pentru arhitectura combinata cu skill-ul renda-canon-memory (skill-ul cara canonul complet
+// invizibil in references; modelul rezolva codurile de acolo). Stare persistata; migrare automata
+// de la ON/OFF-ul vechi (true->full, false->off).
 // v3.3.1 (2026-07-11): FIX 2 defecte prinse la TESTUL REAL (CDP pe cont live): (1) CURSA de
 // sincronizare — click-ul pe send in acelasi tick cu execCommand risca trimiterea starii VECHI
 // (ProseMirror/React sincronizeaza asincron) => input-event + 140ms inainte de click; (2) callback
@@ -423,6 +429,7 @@
     #${HUD_ID} .rv-pp-btn:hover { background: rgba(186,117,23,.14); border-color: var(--rv-amber); }
     #${HUD_ID} .rv-pp-btn.on { color: #ffd27a; border-color: var(--rv-amber); background: rgba(186,117,23,.18); }
     #${HUD_ID} .rv-canon-btn.on { color: #8fd3ff; border-color: var(--rv-blue); background: rgba(55,138,221,.18); }
+    #${HUD_ID} .rv-canon-btn.compact { color: #b9a7ff; border-color: var(--rv-violet); background: rgba(127,119,221,.18); }
     #${HUD_ID} .rv-canon-line {
       font-size: 10px; color: var(--rv-text-2); max-width: 360px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -736,8 +743,17 @@
   // (/canon_select ruleaza vigilia_router.pick_reflexes + pick_norme — ACELASI selector ca la Claude),
   // iar blocul [CANON RENDA] se adauga la FINALUL mesajului inainte de trimitere. Fail-open: server
   // oprit / timeout -> mesajul pleaca NEatins. Butonul ⚖ Canon = suprimare (teste A/B).
-  function getCanonOn() { try { return localStorage.getItem(CANON_KEY) !== 'false'; } catch (_) { return true; } }
-  function setCanonOn(v) { try { localStorage.setItem(CANON_KEY, String(!!v)); } catch (_) {} }
+  // v3.4: trei stari — 'full' | 'compact' | 'off' (migrare din vechiul true/false)
+  function getCanonMode() {
+    try {
+      const v = localStorage.getItem(CANON_KEY);
+      if (v === 'full' || v === 'compact' || v === 'off') return v;
+      if (v === 'false') return 'off';
+      return 'full';
+    } catch (_) { return 'full'; }
+  }
+  function setCanonMode(m) { try { localStorage.setItem(CANON_KEY, m); } catch (_) {} }
+  function getCanonOn() { return getCanonMode() !== 'off'; }
 
   function setCanonLine(hud, text, ok) {
     const n = hud.querySelector('[data-rv-canon]');
@@ -758,8 +774,18 @@
     });
   }
 
-  function buildCanonBlock(d) {
+  function buildCanonBlock(d, mode) {
     const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+    if (mode === 'compact') {
+      // o linie discreta, doar coduri — canonul complet il cara skill-ul renda-canon-memory (references);
+      // modelul rezolva codurile de acolo. DIR:n = cate directive active insotesc cererea (textul lor integral
+      // e prea lung pt modul compact -> intra DOAR daca exista, prescurtat la 200 char total).
+      const r = (d.reflexe || []).map((x) => x.code).join('·');
+      const n = (d.norme || []).map((x) => x.id).join('·');
+      let line = '\n\n' + CANON_MARK + ' ' + r + ' + ' + n + ' — aplică reflexele și normele cu aceste coduri din canonul RENDA; R01 prevalează]';
+      (d.directive || []).forEach((dd) => { line += '\n[DIRECTIVĂ ' + dd.key + ': ' + cut(dd.text, 200) + ']'; });
+      return line;
+    }
     const lines = ['', '', CANON_MARK + ' · reflexe+norme selectate pentru această cerere — aplică-le ca proces și lentilă; la conflict R01 ZERO INVENȚIE prevalează]'];
     (d.reflexe || []).forEach((r) => {
       lines.push('REFLEX ' + r.code + ' ' + cut(r.axis, 60) + ' | DPI: ' + cut(r.dpi, 150) + ' | DNI: ' + cut(r.dni, 150));
@@ -767,13 +793,18 @@
     (d.norme || []).forEach((n) => {
       lines.push('NORMA [' + n.id + '] ' + cut(n.name, 70) + ' — ' + cut(n.formula, 170) + ' (' + (n.why === 'zi' ? 'rotație/zi' : 'potrivire') + ')');
     });
+    (d.directive || []).forEach((dd) => {
+      lines.push('DIRECTIVĂ [' + dd.key + ']: ' + cut(dd.text, 400));
+    });
     return lines.join('\n');
   }
 
   function canonSummary(d) {
     const r = (d.reflexe || []).map((x) => x.code).join('·');
     const n = (d.norme || []).map((x) => x.id).join('·');
-    return 'canon: ' + r + ' + ' + n;
+    const dir = (d.directive || []).length ? ' + DIR:' + d.directive.length : '';
+    const mode = getCanonMode() === 'compact' ? ' (compact)' : '';
+    return 'canon: ' + r + ' + ' + n + dir + mode;
   }
 
   function moveCursorToEnd(ed) {
@@ -838,7 +869,7 @@
       ed.focus();
       moveCursorToEnd(ed);
       let injected = false;
-      try { injected = document.execCommand('insertText', false, buildCanonBlock(d)); } catch (_) {}
+      try { injected = document.execCommand('insertText', false, buildCanonBlock(d, getCanonMode())); } catch (_) {}
       setCanonLine(hud2, injected ? canonSummary(d) : 'canon: injectie esuata — trimis LIBER', !!injected);
       proceedSend(ed);
     }
@@ -1087,16 +1118,24 @@
     hud.querySelector('.rv-pp-btn')?.addEventListener('click', () => panel.classList.toggle('open'));
     setInterval(autoInsertPerpetual, 1200);
 
-    // v3.3: CANON per-tura — buton ⚖ (ON/OFF, persistat) + interceptarea trimiterii
+    // v3.4: CANON per-tura — buton ⚖ ciclic FULL -> COMPACT -> OFF (persistat) + interceptarea trimiterii
     const canonBtn = hud.querySelector('.rv-canon-btn');
     function refreshCanonBtn() {
-      const on = getCanonOn();
-      if (canonBtn) canonBtn.classList.toggle('on', on);
-      setCanonLine(hud, on ? 'canon: ON — se selectează la trimitere' : 'canon: OFF — comportament liber', true);
+      const m = getCanonMode();
+      if (canonBtn) {
+        canonBtn.classList.toggle('on', m !== 'off');
+        canonBtn.classList.toggle('compact', m === 'compact');
+        canonBtn.textContent = m === 'compact' ? '⚖ Canon·c' : '⚖ Canon';
+      }
+      setCanonLine(hud,
+        m === 'off' ? 'canon: OFF — comportament liber'
+          : m === 'compact' ? 'canon: COMPACT — doar codurile (canonul complet = skill-ul renda-canon-memory)'
+          : 'canon: ON — se selectează la trimitere', true);
     }
     canonBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      setCanonOn(!getCanonOn());
+      const next = {full: 'compact', compact: 'off', off: 'full'}[getCanonMode()] || 'full';
+      setCanonMode(next);
       refreshCanonBtn();
     });
     refreshCanonBtn();
