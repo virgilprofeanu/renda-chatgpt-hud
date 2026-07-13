@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RENDA VIGILIA HUD pentru ChatGPT",
-  "version": "4.9.3",
+  "version": "4.9.4",
   "description": "Carcasă vizuală RENDA/VIGILIA peste ChatGPT + monitor CPU/RAM live din HUD-ul local (localhost:8765/sysmon). Nu citește și nu transmite conversațiile.",
   "author": "Virgil Profeanu",
   "icons": {

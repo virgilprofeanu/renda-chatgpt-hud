@@ -1,7 +1,16 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.3
+// @version      4.9.4
+// v4.9.4 (2026-07-13): (1) LOCKDOWN SKILLS pe pagina nativa ChatGPT (/plugins). Ascunde din UI:
+// (a) TOT comutatorul Plugins/Skills (ambele taburi — identificat ca ancestorul tabului "Skills"
+// care contine si "Plugins", ca sa nu atinga titlul h1 sau linkul din sidebar); (b) optiunile
+// Download / Share / Uninstall din meniul "..." al fiecarui skill (meniul e recunoscut prin
+// prezenta unei optiuni Download/Uninstall, ca sa nu atinga meniul de share al unui chat). Tot
+// din HUD-ul propriu dispare linkul de nav "Skills". Ascundere VIZUALA prin MutationObserver —
+// NU bariera de securitate (devtools/URL direct tot ajung; blocarea reala = admin workspace OpenAI).
+// (2) FIX link GPT: butonul "▶ Deschide" naviga la /g-<id> (gresit) -> acum /g/g-<id>-slug corect.
+// (3) update.ps1 actualizeaza DOAR spre versiuni mai noi (semver) — fara downgrade accidental.
 // v4.9.3 (2026-07-13): (1) UNIVERSAL — ACELASI fisier ruleaza in Tampermonkey SI ca content
 // script de extensie Chrome, fara adaptari externe: cand GM_* lipseste dar chrome.runtime
 // exista (extensie), gm cade pe extHudRequest (mesaj 'hud_fetch' catre service worker-ul
@@ -155,7 +164,6 @@
       ['Imagini', '/images'],
       ['Aplicații', '/apps'],
       ['GPT-uri', '/gpts'],
-      ['Skills', '/skills'],
       ['Plugins', '/plugins'],
       ['Library', '/library']
     ]
@@ -855,7 +863,18 @@
     list.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
-      if (b.dataset.open) { panel.classList.remove('open'); location.href = b.dataset.open; }
+      if (b.dataset.open) {
+        panel.classList.remove('open');
+        // v4.9.4: URL corect de GPT = chatgpt.com/g/g-<id>-slug. Datele poarta doar
+        // "g-<id>-slug", deci trebuie prefixat cu /g/ (inainte naviga la /g-... = 404/gresit).
+        let u = b.dataset.open || '';
+        if (!/^https?:/i.test(u)) {
+          u = u.replace(/^\/+/, '');
+          if (!u.startsWith('g/')) u = 'g/' + u;
+          u = 'https://chatgpt.com/' + u;
+        }
+        location.href = u;
+      }
       else if (b.dataset.copy) {
         navigator.clipboard.writeText(b.dataset.copy).then(() => {
           const t = b.textContent; b.textContent = '✓ copiat';
@@ -1466,6 +1485,66 @@
       updateState(hud);
     });
     bodyObserver.observe(document.body, {childList: true});
+
+    startSkillLockdown();
+  }
+
+  // v4.9.4: LOCKDOWN SKILLS pe pagina nativa ChatGPT (/plugins). Ascunde din UI tabul "Skills"
+  // si optiunile Download/Share/Uninstall din meniul "..." al fiecarui skill. Ascundere VIZUALA,
+  // nu bariera de securitate: blocarea reala se face din admin-ul workspace OpenAI.
+  function startSkillLockdown() {
+    // etichete de ascuns in meniul "..." (engleza + romana). Meniul e considerat "de skill/plugin"
+    // doar daca CONTINE Download/Uninstall — asa nu atingem meniul de share al unui chat obisnuit.
+    const MENU_HIDE = ['download', 'share', 'uninstall', 'descarca', 'descarcă', 'distribuie', 'partajeaza', 'partajează', 'dezinstaleaza', 'dezinstalează'];
+    const MENU_MARK = ['download', 'uninstall', 'descarc', 'dezinstal'];
+    const TAB_HIDE = ['skills'];
+
+    function hideTab() {
+      // Ascunde TOT comutatorul Plugins/Skills (nu doar Skills). Il identificam sigur ca fiind
+      // ancestorul apropiat al tabului "Skills" care contine SI un control "Plugins" — asa nu
+      // atingem titlul mare "Plugins" (h1, nu e control) si nici linkul "Plugins" din sidebar
+      // (departe in DOM). Daca nu gasim containerul, ascundem macar tabul Skills.
+      const clickables = Array.from(document.querySelectorAll('button, a, [role="tab"]'));
+      clickables.forEach((sk) => {
+        if (sk.dataset.rvSkillLock || sk.closest('#' + HUD_ID)) return;
+        if (!TAB_HIDE.includes((sk.textContent || '').trim().toLowerCase())) return;
+        sk.dataset.rvSkillLock = '1';
+        let node = sk;
+        for (let i = 0; i < 5 && node.parentElement; i++) {
+          node = node.parentElement;
+          const hasPlugins = Array.from(node.querySelectorAll('button, a, [role="tab"]'))
+            .some((c) => (c.textContent || '').trim().toLowerCase() === 'plugins');
+          if (hasPlugins) { node.style.setProperty('display', 'none', 'important'); return; }
+        }
+        sk.style.setProperty('display', 'none', 'important');
+      });
+    }
+
+    function hideMenus() {
+      document.querySelectorAll('[role="menu"]').forEach((menu) => {
+        const items = menu.querySelectorAll('[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]');
+        let isSkillMenu = false;
+        items.forEach((it) => {
+          const t = (it.textContent || '').trim().toLowerCase();
+          if (MENU_MARK.some((w) => t.indexOf(w) !== -1)) isSkillMenu = true;
+        });
+        if (!isSkillMenu) return;
+        items.forEach((it) => {
+          const t = (it.textContent || '').trim().toLowerCase();
+          if (MENU_HIDE.some((w) => t === w || t.indexOf(w) !== -1)) it.style.setProperty('display', 'none', 'important');
+        });
+      });
+    }
+
+    function sweep() { try { hideTab(); hideMenus(); } catch (_) {} }
+    let scheduled = false;
+    function schedule() {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(() => { scheduled = false; sweep(); }, 120);   // throttle: max ~8 treceri/sec
+    }
+    sweep();
+    new MutationObserver(schedule).observe(document.body, {childList: true, subtree: true});
   }
 
   if (document.readyState === 'loading') {

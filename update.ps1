@@ -32,7 +32,15 @@ try {
   $verFile = Join-Path $dir 'version.txt'
   $curVer = ''
   if (Test-Path $verFile) { $curVer = (Get-Content $verFile -Raw).Trim() }
-  if ($newVer -eq $curVer -and -not $Force) { exit 0 }   # nimic nou - iesire tacuta
+  # actualizam DOAR spre o versiune mai noua (semver), niciodata downgrade -
+  # asa o versiune locala mai avansata (ex. instalata manual) nu e data inapoi
+  if (-not $Force) {
+    try {
+      if ([version]$newVer -le [version]$curVer) { exit 0 }
+    } catch {
+      if ($newVer -eq $curVer) { exit 0 }   # fallback daca versiunile nu-s numerice
+    }
+  }
 
   # garda de compatibilitate: fara puntea de extensie, scriptul ar ramane fara
   # acces la serverul HUD local -> nu instalam orbeste
