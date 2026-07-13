@@ -1,7 +1,20 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.2
+// @version      4.9.3
+// v4.9.3 (2026-07-13): (1) UNIVERSAL — ACELASI fisier ruleaza in Tampermonkey SI ca content
+// script de extensie Chrome, fara adaptari externe: cand GM_* lipseste dar chrome.runtime
+// exista (extensie), gm cade pe extHudRequest (mesaj 'hud_fetch' catre service worker-ul
+// background.js, care face fetch-ul spre 127.0.0.1:8765 cu host_permissions — echivalentul
+// @connect), iar RUNNING_VER cade pe chrome.runtime.getManifest().version. Fara nici GM,
+// nici chrome (pagina goala): comportamentul vechi (canon local, sysmon 'fara GM').
+// (2) FIX LIGHT MODE — recolorarea intunecata a paginii ChatGPT (body,
+// --main-surface-*/--sidebar-surface-*/composer, caret, selection, scrollbar) se aplica de
+// acum DOAR cand ChatGPT e pe tema dark (clasa .dark pe <html>, pusa de ChatGPT, urmarita
+// pur din CSS => reactioneaza si la schimbarea temei din mers). Pe light, fortarea fundalului
+// intunecat lasa textul ChatGPT (inchis) ilizibil. Banda HUD si panourile ei raman intunecate
+// pe ambele teme (paleta proprie, completa). Layout-ul (impingerea sub banda, overflow,
+// h-svh) ramane NEatins de tema.
 // v4.9.2: dedup skills normalizat pe sufixul '-tool' (5 dubluri scoase din panou — variantele
 // urcate in ChatGPT poarta '-tool', folderele DIST nu).
 // v4.9.1: catalogul de skills completat de pe DISC (DIST + CREATED_BY_USER scanate mecanic,
@@ -109,6 +122,24 @@
 
   if (window.top !== window.self) return;
 
+  // v4.9.3: punte pentru MEDIUL DE EXTENSIE Chrome — echivalentul GM_xmlhttpRequest cand
+  // scriptul ruleaza ca content script MV3 (CORS-ul paginii interzice fetch direct spre
+  // 127.0.0.1; service worker-ul extensiei, cu host_permissions, poate). In Tampermonkey
+  // functia exista dar nu e folosita niciodata (GM_xmlhttpRequest are prioritate).
+  function extHudRequest(opts) {
+    try {
+      chrome.runtime.sendMessage({ type: 'hud_fetch', url: opts.url, timeout: opts.timeout || 1500 }, (res) => {
+        if (chrome.runtime.lastError || !res) { if (opts.onerror) opts.onerror(); return; }
+        if (res.ok) { if (opts.onload) opts.onload({ responseText: res.text, status: res.status }); }
+        else if (res.timeout) { if (opts.ontimeout) opts.ontimeout(); else if (opts.onerror) opts.onerror(); }
+        else if (opts.onerror) opts.onerror();
+      });
+    } catch (_) { if (opts.onerror) opts.onerror(); }
+  }
+  function extRuntimeOk() {
+    try { return typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.sendMessage && chrome.runtime.id); } catch (_) { return false; }
+  }
+
   const CONFIG = {
     title: 'HUD VIGILIA',
     system: 'RENDA',
@@ -146,7 +177,10 @@
   const CANON_MARK = '[CANON RENDA';           // marker anti-dubla-injectie in acelasi mesaj
   // v3.10: versiunea + momentul build-ului, AFISATE IN BANDA (auditabilitate: banda arata versiunea
   // codului care RULEAZA in acest tab — daca difera de ce e in Tampermonkey, tabul e vechi -> reload).
-  const RUNNING_VER = (function () { try { return (GM_info && GM_info.script && GM_info.script.version) || '?'; } catch (_) { return '?'; } })();
+  const RUNNING_VER = (function () {
+    try { if (GM_info && GM_info.script && GM_info.script.version) return GM_info.script.version; } catch (_) {}
+    try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
+  })();
   const BUILD_STAMP = '2026-07-11-16:34:27';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
@@ -181,6 +215,14 @@
       --rv-green: #1D9E75;
       --rv-amber: #BA7517;
       --rv-hud-height: 78px;
+    }
+
+    /* v4.9.3: recolorarea intunecata a PAGINII ChatGPT se aplica DOAR cand ChatGPT
+       e deja pe tema dark (clasa .dark pe <html>, pusa de ChatGPT si actualizata
+       live la schimbarea temei). Pe tema light, fortarea fundalurilor intunecate
+       lasa textul ChatGPT (inchis la culoare) ilizibil. Banda HUD nu e afectata:
+       are paleta ei proprie, completa, si ramane intunecata pe ambele teme. */
+    :root.renda-vigilia-theme.dark {
       --main-surface-primary: #0d0f12 !important;
       --main-surface-secondary: #15181d !important;
       --main-surface-tertiary: #1b1f26 !important;
@@ -194,12 +236,13 @@
       --rv-hud-height: 38px;
     }
 
-    :root.renda-vigilia-theme,
-    :root.renda-vigilia-theme body {
+    :root.renda-vigilia-theme.dark,
+    :root.renda-vigilia-theme.dark body {
       background: var(--rv-bg) !important;
       color: var(--rv-text) !important;
     }
 
+    /* layout (independent de tema): pagina nu scrolleaza sub banda HUD */
     :root.renda-vigilia-theme body {
       overflow: hidden !important;
     }
@@ -223,31 +266,31 @@
       max-height: 100% !important;
     }
 
-    :root.renda-vigilia-theme [class*='bg-token-sidebar-surface-primary'] {
+    :root.renda-vigilia-theme.dark [class*='bg-token-sidebar-surface-primary'] {
       background-color: #101318 !important;
     }
 
-    :root.renda-vigilia-theme [class*='bg-token-main-surface-primary'] {
+    :root.renda-vigilia-theme.dark [class*='bg-token-main-surface-primary'] {
       background-color: var(--rv-bg) !important;
     }
 
-    :root.renda-vigilia-theme [class*='bg-token-main-surface-secondary'],
-    :root.renda-vigilia-theme [class*='bg-token-composer-surface'] {
+    :root.renda-vigilia-theme.dark [class*='bg-token-main-surface-secondary'],
+    :root.renda-vigilia-theme.dark [class*='bg-token-composer-surface'] {
       background-color: var(--rv-panel) !important;
     }
 
-    :root.renda-vigilia-theme #prompt-textarea,
-    :root.renda-vigilia-theme textarea,
-    :root.renda-vigilia-theme [contenteditable='true'] {
+    :root.renda-vigilia-theme.dark #prompt-textarea,
+    :root.renda-vigilia-theme.dark textarea,
+    :root.renda-vigilia-theme.dark [contenteditable='true'] {
       caret-color: #9cc6f3 !important;
     }
 
-    :root.renda-vigilia-theme ::selection {
+    :root.renda-vigilia-theme.dark ::selection {
       background: rgba(55, 138, 221, .42);
       color: #fff;
     }
 
-    :root.renda-vigilia-theme * {
+    :root.renda-vigilia-theme.dark * {
       scrollbar-color: #344252 #0d0f12;
     }
 
@@ -1018,7 +1061,8 @@
 
   function gmCanonSelect(text, cb) {
     const gm = (typeof GM_xmlhttpRequest === 'function') ? GM_xmlhttpRequest
-      : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest : null;
+      : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest
+      : extRuntimeOk() ? extHudRequest : null;
     if (!gm) return cb(localCanonSelect(text));   // fara GM -> local
     gm({
       method: 'GET',
@@ -1202,7 +1246,8 @@
   // Trafic: DOAR GET pe mașina proprie; nimic din pagină nu pleacă nicăieri.
   function startSysmon(hud) {
     const gm = (typeof GM_xmlhttpRequest === 'function') ? GM_xmlhttpRequest
-      : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest : null;
+      : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest
+      : extRuntimeOk() ? extHudRequest : null;
     const hudNode = hud.querySelector('[data-rv-hud]');
     const cpuNode = hud.querySelector('[data-rv-cpu]');
     const ramNode = hud.querySelector('[data-rv-ram]');
