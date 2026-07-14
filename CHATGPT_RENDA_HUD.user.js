@@ -1,7 +1,23 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.4
+// @version      4.9.7
+// v4.9.7 (2026-07-14): ARHITECTURA HIBRIDA de extensie. Injectarea de baza revine la
+// content_scripts (fisierul de pe disc — garantat, fara comutatorul "Allow user scripts",
+// care s-a dovedit ca pe unele masini nu injecteaza desi inregistrarea reuseste). Stratul
+// userScripts ramane DOAR ca auto-update: unde API-ul functioneaza, overlay-ul cu versiunea
+// mai noua din GitHub (document_start) se monteaza primul si o GARDA anti-dubla-montare
+// (atribut data-rv-hud-loaded pe <html>) retrage tacut instantele urmatoare — inclusiv
+// Tampermonkey daca ruleaza in paralel (nu mai exista HUD dublu).
+// v4.9.6 (2026-07-13): DIAGNOSTIC — loguri in consola tab-ului (F12). O linie de start MEREU
+// vizibila (versiune + transport HUD: Tampermonkey / extensie / local). Restul (extHudRequest,
+// sysmon LIVE/OFFLINE, canon HUD/local, lockdown) sunt OPT-IN: localStorage.setItem('rvDebug','1')
+// + refresh; se sting cu '0'. NU se logheaza niciodata textul din composer/conversatie.
+// v4.9.5 (2026-07-13): compat cu AUTO-UPDATE PUR IN BROWSER (chrome.userScripts): (a) RUNNING_VER
+// citeste si __RENDA_VER__ (injectat de background.js, fiindca in lumea USER_SCRIPT nu exista
+// chrome.runtime.getManifest); (b) extRuntimeOk nu mai cere chrome.runtime.id (lipseste in
+// USER_SCRIPT) — doar sendMessage. Extensia se autoactualizeaza singura din GitHub, fara
+// scheduled task / PowerShell. In Tampermonkey nimic nu se schimba.
 // v4.9.4 (2026-07-13): (1) LOCKDOWN SKILLS pe pagina nativa ChatGPT (/plugins). Ascunde din UI:
 // (a) TOT comutatorul Plugins/Skills (ambele taburi — identificat ca ancestorul tabului "Skills"
 // care contine si "Plugins", ca sa nu atinga titlul h1 sau linkul din sidebar); (b) optiunile
@@ -131,22 +147,45 @@
 
   if (window.top !== window.self) return;
 
+  // v4.9.7: garda anti-dubla-montare. HUD-ul poate sosi pe mai multe cai simultan
+  // (content_scripts de pe disc + overlay userScripts cu versiunea noua + eventual
+  // Tampermonkey) — se monteaza DOAR prima instanta; restul se retrag tacut.
+  try {
+    if (document.documentElement.hasAttribute('data-rv-hud-loaded')) return;
+    document.documentElement.setAttribute('data-rv-hud-loaded', '1');
+  } catch (_) {}
+
+  // v4.9.5: DIAGNOSTIC — loguri in consola tab-ului (F12). Opt-in ca sa nu spameze colegii:
+  // se aprind cu  localStorage.setItem('rvDebug','1')  + refresh; se sting cu '0'. NU se
+  // logheaza NICIODATA textul din composer/conversatie (doar lungimi/status — confidentialitate).
+  const RV_DEBUG = (function () { try { return localStorage.getItem('rvDebug') === '1'; } catch (_) { return false; } })();
+  function rvlog() { if (!RV_DEBUG) return; try { console.log.apply(console, ['%c[RENDA HUD]', 'color:#378ADD;font-weight:600'].concat([].slice.call(arguments))); } catch (_) {} }
+
   // v4.9.3: punte pentru MEDIUL DE EXTENSIE Chrome — echivalentul GM_xmlhttpRequest cand
   // scriptul ruleaza ca content script MV3 (CORS-ul paginii interzice fetch direct spre
   // 127.0.0.1; service worker-ul extensiei, cu host_permissions, poate). In Tampermonkey
   // functia exista dar nu e folosita niciodata (GM_xmlhttpRequest are prioritate).
   function extHudRequest(opts) {
+    const t0 = Date.now();
+    const tag = (opts.url || '').split('/').pop().split('?')[0] || opts.url;
+    rvlog('→ extHudRequest', tag);
     try {
       chrome.runtime.sendMessage({ type: 'hud_fetch', url: opts.url, timeout: opts.timeout || 1500 }, (res) => {
-        if (chrome.runtime.lastError || !res) { if (opts.onerror) opts.onerror(); return; }
-        if (res.ok) { if (opts.onload) opts.onload({ responseText: res.text, status: res.status }); }
-        else if (res.timeout) { if (opts.ontimeout) opts.ontimeout(); else if (opts.onerror) opts.onerror(); }
-        else if (opts.onerror) opts.onerror();
+        if (chrome.runtime.lastError || !res) {
+          rvlog('✗ extHudRequest', tag, chrome.runtime.lastError ? ('lastError: ' + chrome.runtime.lastError.message) : 'fara raspuns de la background');
+          if (opts.onerror) opts.onerror();
+          return;
+        }
+        if (res.ok) { rvlog('✓ extHudRequest', tag, 'HTTP ' + res.status, (Date.now() - t0) + 'ms', (res.text || '').length + 'B'); if (opts.onload) opts.onload({ responseText: res.text, status: res.status }); }
+        else if (res.timeout) { rvlog('⏱ extHudRequest', tag, 'timeout'); if (opts.ontimeout) opts.ontimeout(); else if (opts.onerror) opts.onerror(); }
+        else { rvlog('✗ extHudRequest', tag, 'blocat/eroare la background:', res.error || '?'); if (opts.onerror) opts.onerror(); }
       });
-    } catch (_) { if (opts.onerror) opts.onerror(); }
+    } catch (e) { rvlog('✗ extHudRequest', tag, 'exceptie:', e && e.message); if (opts.onerror) opts.onerror(); }
   }
   function extRuntimeOk() {
-    try { return typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.sendMessage && chrome.runtime.id); } catch (_) { return false; }
+    // NU cere chrome.runtime.id: in lumea USER_SCRIPT (chrome.userScripts) id lipseste,
+    // dar sendMessage exista daca world-ul are messaging activat (configureWorld).
+    try { return typeof chrome !== 'undefined' && !!(chrome.runtime && typeof chrome.runtime.sendMessage === 'function'); } catch (_) { return false; }
   }
 
   const CONFIG = {
@@ -187,6 +226,9 @@
   // codului care RULEAZA in acest tab — daca difera de ce e in Tampermonkey, tabul e vechi -> reload).
   const RUNNING_VER = (function () {
     try { if (GM_info && GM_info.script && GM_info.script.version) return GM_info.script.version; } catch (_) {}
+    // __RENDA_VER__ e injectat de background.js la inregistrarea prin chrome.userScripts
+    // (in lumea USER_SCRIPT nu exista chrome.runtime.getManifest)
+    try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
   const BUILD_STAMP = '2026-07-11-16:34:27';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
@@ -1082,14 +1124,16 @@
     const gm = (typeof GM_xmlhttpRequest === 'function') ? GM_xmlhttpRequest
       : (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function') ? GM.xmlHttpRequest
       : extRuntimeOk() ? extHudRequest : null;
-    if (!gm) return cb(localCanonSelect(text));   // fara GM -> local
+    if (!gm) { rvlog('canon: fara transport -> selectie LOCALA'); return cb(localCanonSelect(text)); }
+    // NB: nu logam textul (confidentialitate) — doar lungimea si sursa selectiei
+    rvlog('canon: cerere HUD (', String(text).length, 'caractere )');
     gm({
       method: 'GET',
       url: CONFIG.canonUrl + '?q=' + encodeURIComponent(String(text).slice(0, 2000)),
       timeout: 900,
-      onload: (res) => { try { const d = JSON.parse(res.responseText); if (d && d.ok) { d.directive = withUserDirective(d.directive); cb(d); } else cb(localCanonSelect(text)); } catch (_) { cb(localCanonSelect(text)); } },
-      onerror: () => cb(localCanonSelect(text)),
-      ontimeout: () => cb(localCanonSelect(text))
+      onload: (res) => { try { const d = JSON.parse(res.responseText); if (d && d.ok) { d.directive = withUserDirective(d.directive); rvlog('canon: sursa HUD ✓ (', (d.reflexe || []).length, 'reflexe,', (d.norme || []).length, 'norme )'); cb(d); } else { rvlog('canon: HUD a raspuns dar fara ok -> LOCAL'); cb(localCanonSelect(text)); } } catch (_) { rvlog('canon: raspuns HUD ne-parsabil -> LOCAL'); cb(localCanonSelect(text)); } },
+      onerror: () => { rvlog('canon: eroare transport -> LOCAL'); cb(localCanonSelect(text)); },
+      ontimeout: () => { rvlog('canon: timeout HUD -> LOCAL'); cb(localCanonSelect(text)); }
     });
   }
 
@@ -1273,9 +1317,12 @@
     const hudBar = hud.querySelector('[data-rv-hud-bar]');
     const cpuBar = hud.querySelector('[data-rv-cpu-bar]');
     const ramBar = hud.querySelector('[data-rv-ram-bar]');
-    if (!gm) { if (hudNode) hudNode.textContent = 'fără GM'; return; }
+    if (!gm) { if (hudNode) hudNode.textContent = 'fără GM'; rvlog('sysmon: fara transport (nici GM, nici extensie)'); return; }
+    let lastSys = '';
+    const sysLog = (s, extra) => { if (s !== lastSys) { rvlog('sysmon:', s, extra || ''); lastSys = s; } };
     const color = (p) => p >= 85 ? '#e06c6c' : (p >= 65 ? '#e0b24c' : '#378ADD');
     function setOffline() {
+      sysLog('OFFLINE', '(serverul HUD nu raspunde pe ' + CONFIG.sysmonUrl + ')');
       if (hudNode) { hudNode.textContent = 'OFFLINE'; hudNode.classList.remove('online'); }
       if (hudBar) { hudBar.style.width = '100%'; hudBar.style.background = '#5a1d1d'; }
       if (cpuNode) cpuNode.textContent = '—';
@@ -1296,6 +1343,7 @@
             if (!d.ok) {
               // serverul HUD e VIU dar samplerul CPU/RAM nu are date (ex. copil sysmon oprit) —
               // stare reala distincta de "server oprit" (onest, nu OFFLINE fals)
+              sysLog('LIVE (fara metrici CPU/RAM)');
               if (hudNode) { hudNode.textContent = 'LIVE'; hudNode.classList.add('online'); }
               if (hudBar) { hudBar.style.width = '100%'; hudBar.style.background = '#1D9E75'; }
               if (cpuNode) cpuNode.textContent = '—';
@@ -1308,6 +1356,7 @@
             const ram = Math.round(d.ram_pct || 0);
             const rcpu = Math.round(d.renda_cpu || 0);
             const rram = d.renda_ram_gb || 0;
+            sysLog('LIVE', 'CPU ' + cpu + '% / RAM ' + ram + '%');
             if (hudNode) { hudNode.textContent = 'LIVE'; hudNode.classList.add('online'); }
             if (hudBar) { hudBar.style.width = '100%'; hudBar.style.background = '#1D9E75'; }
             if (cpuNode) cpuNode.textContent = cpu + '% · R ' + rcpu + '%';
@@ -1425,6 +1474,12 @@
 
   function mount() {
     if (!document.head || !document.body) return;
+    // linie de start MEREU vizibila: confirma ca scriptul s-a incarcat + ce transport foloseste
+    // pentru serverul HUD local (asa se vede din prima daca extensia ruleaza si pe ce cale merge).
+    const transport = (typeof GM_xmlhttpRequest === 'function' || (typeof GM !== 'undefined' && GM && typeof GM.xmlHttpRequest === 'function'))
+      ? 'Tampermonkey (GM)'
+      : (extRuntimeOk() ? 'extensie (background.js)' : 'LOCAL (fara server)');
+    try { console.log('%c[RENDA HUD]', 'color:#378ADD;font-weight:600', 'v' + RUNNING_VER + ' pornit · transport HUD: ' + transport + ' · debug: ' + (RV_DEBUG ? 'ON' : 'OFF (localStorage.setItem(\'rvDebug\',\'1\')+refresh)')); } catch (_) {}
     document.documentElement.classList.add('renda-vigilia-theme');
     addStyle();
     findAndMarkRoot();
@@ -1514,9 +1569,10 @@
           node = node.parentElement;
           const hasPlugins = Array.from(node.querySelectorAll('button, a, [role="tab"]'))
             .some((c) => (c.textContent || '').trim().toLowerCase() === 'plugins');
-          if (hasPlugins) { node.style.setProperty('display', 'none', 'important'); return; }
+          if (hasPlugins) { node.style.setProperty('display', 'none', 'important'); rvlog('lockdown: comutator Plugins/Skills ascuns'); return; }
         }
         sk.style.setProperty('display', 'none', 'important');
+        rvlog('lockdown: tab Skills ascuns (container negasit)');
       });
     }
 
@@ -1529,10 +1585,12 @@
           if (MENU_MARK.some((w) => t.indexOf(w) !== -1)) isSkillMenu = true;
         });
         if (!isSkillMenu) return;
+        let hid = 0;
         items.forEach((it) => {
           const t = (it.textContent || '').trim().toLowerCase();
-          if (MENU_HIDE.some((w) => t === w || t.indexOf(w) !== -1)) it.style.setProperty('display', 'none', 'important');
+          if (MENU_HIDE.some((w) => t === w || t.indexOf(w) !== -1)) { it.style.setProperty('display', 'none', 'important'); hid++; }
         });
+        if (hid) rvlog('lockdown: meniu skill — ascunse', hid, 'optiuni (Download/Share/Uninstall)');
       });
     }
 

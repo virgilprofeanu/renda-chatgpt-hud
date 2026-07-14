@@ -1,49 +1,68 @@
 # ============================================================================
-# RENDA HUD - BOOTSTRAP: instalare completa direct de pe GitHub, fara git.
-#   1. descarca arhiva ZIP a repo-ului (branch main) - nu cere git instalat
-#   2. dezarhiveaza si copiaza fisierele in D:\apps\renda-hud-chatgpt
-#      (daca nu exista unitatea D:, cade pe %LOCALAPPDATA%\apps\renda-hud-chatgpt)
-#   3. porneste install.ps1 de acolo: task auto-update + ultima versiune +
-#      calea in clipboard + deschide chrome://extensions
-# Utilizatorului ii raman doar cei 3 pasi din Chrome (Developer mode /
-# Load unpacked / Ctrl+V) - singurii pe care Chrome nu-i lasa automatizati.
-# Rulabil si pentru RE-instalare/reparare: suprascrie fisierele, task-ul se
-# re-inregistreaza curat. Fisier ASCII-only (PS 5.1 fara BOM = ANSI).
+# RENDA HUD - BOOTSTRAP: pune extensia pe disc si deschide Chrome. ATAT.
+# Auto-update-ul NU mai are nevoie de nimic din afara browserului: extensia se
+# actualizeaza singura din GitHub prin chrome.userScripts (vezi background.js).
+# Acest script doar:
+#   1. descarca arhiva ZIP a repo-ului (branch main) - fara git
+#   2. o pune in D:\apps\renda-hud-chatgpt (sau %LOCALAPPDATA%\apps\... daca nu e D:)
+#   3. pune calea in clipboard si deschide chrome://extensions
+# Raman cei 3 pasi din Chrome (Developer mode / Load unpacked / Ctrl+V) + pe
+# Chrome 138+ comutatorul "Allow user scripts" pe cardul extensiei.
+# Fisier ASCII-only (PS 5.1 fara BOM = ANSI).
 # ============================================================================
 $ErrorActionPreference = 'Stop'
 $repoZip = 'https://github.com/virgilprofeanu/renda-chatgpt-hud/archive/refs/heads/main.zip'
 $appName = 'renda-hud-chatgpt'
 
-# TLS 1.2 pentru Windows-uri mai vechi (PS 5.1 porneste uneori doar cu TLS 1.0)
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072 } catch {}
 
 $base = 'D:\apps'
 if (-not (Test-Path 'D:\')) {
   $base = Join-Path $env:LOCALAPPDATA 'apps'
-  Write-Host "Unitatea D: nu exista pe acest calculator - instalez in $base" -ForegroundColor Yellow
+  Write-Host "Unitatea D: nu exista - instalez in $base" -ForegroundColor Yellow
 }
 $dest = Join-Path $base $appName
 
 $tmpZip = Join-Path $env:TEMP 'renda-hud-repo.zip'
 $tmpDir = Join-Path $env:TEMP 'renda-hud-repo'
-Write-Host "Descarc repo-ul de pe GitHub (fara git)..."
+Write-Host "Descarc extensia de pe GitHub (fara git)..."
 Invoke-WebRequest -Uri $repoZip -OutFile $tmpZip -UseBasicParsing -TimeoutSec 60
 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
 Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
 
-# arhiva GitHub contine un singur folder radacina: <repo>-main
 $src = Get-ChildItem $tmpDir -Directory | Select-Object -First 1
 if (-not $src -or -not (Test-Path (Join-Path $src.FullName 'manifest.json'))) {
   Write-Host 'EROARE: repo-ul nu contine (inca) fisierele extensiei (manifest.json).' -ForegroundColor Red
-  Write-Host 'Fa commit la TOT folderul extensiei in GitHub (branch main), apoi ruleaza din nou.' -ForegroundColor Red
+  Write-Host 'Publica pachetul in GitHub (branch main), apoi ruleaza din nou.' -ForegroundColor Red
   exit 1
 }
 
 New-Item -ItemType Directory -Force $dest | Out-Null
 Copy-Item (Join-Path $src.FullName '*') $dest -Recurse -Force
 Remove-Item $tmpZip, $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "Fisierele extensiei sunt in: $dest" -ForegroundColor Green
-Write-Host ""
 
-# restul (task, update, clipboard, Chrome) il face installer-ul din folder
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dest 'install.ps1')
+# curatenie: mecanismul VECHI de update (task Windows), daca acest calculator a avut
+# o instalare initiala. try/catch obligatoriu: cu EAP=Stop, stderr-ul de la schtasks
+# (task inexistent = cazul obisnuit) ar deveni eroare fatala in PS 5.1.
+try {
+  schtasks /Delete /TN 'RENDA HUD Extension AutoUpdate' /F 2>$null | Out-Null
+  if ($LASTEXITCODE -eq 0) { Write-Host 'Task-ul vechi de auto-update a fost sters (nu mai e necesar).' -ForegroundColor Yellow }
+} catch {}
+
+try { Set-Clipboard -Value $dest } catch {}
+$chromeOk = $false
+try { Start-Process 'chrome' 'chrome://extensions/'; $chromeOk = $true } catch {}
+
+Write-Host ""
+Write-Host "Extensia e in: $dest" -ForegroundColor Green
+Write-Host "Calea e in CLIPBOARD (Ctrl+V la 'Load unpacked')." -ForegroundColor Green
+if ($chromeOk) { Write-Host "Am deschis chrome://extensions." -ForegroundColor Green } else { Write-Host "Deschide manual chrome://extensions" -ForegroundColor Yellow }
+Write-Host ""
+Write-Host "MAI AI DE FACUT IN CHROME (o singura data):" -ForegroundColor Cyan
+Write-Host "  1. Porneste 'Developer mode' (dreapta-sus)"
+Write-Host "  2. 'Load unpacked' -> Ctrl+V in bara de cale -> Enter -> Select Folder"
+Write-Host "  3. DOAR pe Chrome 138+: pe cardul extensiei, activeaza 'Allow user scripts'"
+Write-Host ""
+Write-Host "Apoi deschide https://chatgpt.com - banda HUD apare sus."
+Write-Host "De acum extensia se actualizeaza SINGURA din GitHub (nimic de instalat in plus)."
+Write-Host "Daca folosesti userscript-ul in Tampermonkey: DEZACTIVEAZA-L (altfel HUD dublu)."
