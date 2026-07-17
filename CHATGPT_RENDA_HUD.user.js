@@ -1,7 +1,16 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.40
+// @version      4.9.42
+// v4.9.42 (2026-07-17): butonul "📅 Ziua mea" MUTAT de pe cardul 🎯 DIRECT in bara HUD
+// (langa "🎯 Misiune") — un click insereaza in composer deschiderea de sesiune pentru
+// organizarea zilei, cu numele completat automat; cardul ramane doar cu ⤵/📋 pentru boot.
+// v4.9.41 (2026-07-17): buton nou "📅 Organizeaza-mi ziua" pe cardul 🎯 (sub butoanele de
+// boot): insereaza in composer deschiderea de sesiune pentru organizarea zilei — "In aceasta
+// sesiune ma vei asista pe mine, <NUME>, ca sa imi organizez ziua in concordanta cu Misiunea
+// mea si cu Tezele VEGO. Eu iti spun aici cam la ce lucrez, tu ma ajuti sa planific, iar
+// seara ma ajuti sa raportez." — cu numele angajatului completat AUTOMAT din identitatea
+// detectata. Se combina natural cu "⤵ In composer" (boot+teze) inserat inainte.
 // v4.9.40 (2026-07-17): eliminata COMUTAREA de pe cardul 🎯, la cererea userului: au disparut
 // butoanele "schimbă categoria…" si "alt angajat…" (cu tot cu vizualizarea temporara) —
 // fiecare isi vede DOAR misiunea si boot-ul propriu, identificate dupa email. Dropdown-urile
@@ -598,6 +607,8 @@
   /*__RENDA_TEZE_DATA_END__*/
   // instructiunea finala adaugata dupa boot + teze la inserarea in composer
   const RV_BOOT_FOOTER = 'Folosește skill-urile și plugin-urile potrivite pentru a îndeplini sarcina trasată, în acord cu Tezele VEGO, cu misiunea și acțiunile rolului tău și cu procedurile RENDA/VEGO. Semnalează blocajele și nu inventa date lipsă.';
+  // v4.9.41: deschiderea de sesiune "organizeaza-mi ziua" ({name} = angajatul identificat)
+  const RV_DAY_TEXT = 'În această sesiune mă vei asista pe mine, {name}, ca să îmi organizez ziua în concordanță cu Misiunea mea și cu Tezele VEGO.\nEu îți spun aici cam la ce lucrez, tu mă ajuți să planific, iar seara mă ajuți să raportez.';
   const CANON_KEY = 'rendaVigiliaCanonOn';     // v3.3: ON/OFF injectie canon per-tura (default ON)
   const UDIR_KEY = 'rendaVigiliaUserDirective'; // v3.7: directiva canon a userului (capsula USER DIRECTIVE)
   const IDENT_KEY = 'rendaVigiliaSessionIdentity'; // v3.9: identitatea userului (Nume Prenume) — declaratie de sesiune
@@ -1277,6 +1288,7 @@
         <button class="rv-ag-btn" type="button" title="Catalogul agenților GPT + skill-urilor RENDA — deschide în dialog nou sau copiază @aroma pentru chatul curent">🤖 Agenți</button>
         <button class="rv-pp-btn rv-sett-btn" type="button" title="Setări: API key + sursa de date HUD (proiecte + angajați VEGO)">⚙ SETT</button>
         <button class="rv-pp-btn rv-mis-btn" type="button" title="Misiunea și primele 3 acțiuni — pe funcție (sau individuală, când vine din platformă)">🎯 Misiune</button>
+        <button class="rv-pp-btn rv-day-btn" type="button" title="Inserează în composer deschiderea de sesiune pentru organizarea zilei: dimineața planifici, seara raportezi — cu numele tău completat automat">📅 Ziua mea</button>
         <button class="rv-pp-btn rv-canon-btn" type="button" title="CANON per-tură: la fiecare trimitere, blocul [CANON RENDA] (reflexe VIGILIA + norme ELEAT selectate de serverul HUD local) se adaugă la mesaj. OFF = comportament liber (teste A/B).">⚖ Canon</button>
         <span class="rv-canon-line" data-rv-canon>canon: —</span>
         <a class="renda" href="${CONFIG.rendaHudUrl}" target="_blank" rel="noopener">◉ RENDA HUD ↗</a>
@@ -2829,6 +2841,19 @@
     // emailul sesiunii se citeste async, apoi cardul se redeseneaza (pt. override individual)
     const misPanel = buildMissionCard(hud);
     hud.querySelector('.rv-mis-btn')?.addEventListener('click', () => misPanel.classList.toggle('open'));
+    // v4.9.42: butonul "📅 Ziua mea" e DIRECT in HUD (mutat de pe card, la cererea userului):
+    // insereaza in composer deschiderea de sesiune pentru organizarea zilei, cu numele
+    // angajatului identificat completat automat
+    const dayBtn = hud.querySelector('.rv-day-btn');
+    dayBtn?.addEventListener('click', () => {
+      const bt = findMyBoot();
+      const nm = (bt && bt.n) || rvUserName || prettyNameFromEmail(rvUserEmail) || '<numele tău>';
+      const ok = insertIntoComposer(RV_DAY_TEXT.split('{name}').join(nm) + '\n\n');
+      const t = dayBtn.textContent;
+      dayBtn.textContent = ok ? '✓ inserat' : '✗ composer negăsit';
+      setTimeout(() => { dayBtn.textContent = t; }, 1200);
+      rvlog('deschidere "ziua mea" ' + (ok ? 'inserata' : 'NEINSERATA — composer negasit'));
+    });
     if (!misClosedToday()) misPanel.classList.add('open');
     fetchSessionEmail(() => { if (misPanel.rvRender) misPanel.rvRender(); });
     setInterval(autoInsertPerpetual, 1200);
