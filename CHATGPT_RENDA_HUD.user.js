@@ -1,7 +1,11 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.42
+// @version      4.9.43
+// v4.9.43 (2026-07-17): DIRECTIVA DE ACTIVARE la plugins (tab-ul Skills & Plugins):
+// click pe NUMELE pluginului insereaza in composer, iar butonul 📋 (redenumit "activare")
+// copiaza: RENDA::ACTIVATE(plugin=<NUME>;scope=current_request;persist=current_session;
+// reuse=if_relevant). Numele pluginului e clicabil (hover amber + underline).
 // v4.9.42 (2026-07-17): butonul "📅 Ziua mea" MUTAT de pe cardul 🎯 DIRECT in bara HUD
 // (langa "🎯 Misiune") — un click insereaza in composer deschiderea de sesiune pentru
 // organizarea zilei, cu numele completat automat; cardul ramane doar cu ⤵/📋 pentru boot.
@@ -977,6 +981,8 @@
     #renda-vigilia-ag-panel .ag-card:hover { border-color: rgba(55,138,221,.4); }
     #renda-vigilia-ag-panel .ag-info { flex: 1; min-width: 0; }
     #renda-vigilia-ag-panel .ag-name { color: #dfeaff; font-weight: 600; font-size: 11.5px; }
+    #renda-vigilia-ag-panel .ag-name[data-ins] { cursor: pointer; }
+    #renda-vigilia-ag-panel .ag-name[data-ins]:hover { color: #ffd27a; text-decoration: underline; }
     #renda-vigilia-ag-panel .ag-desc { color: #8a93a0; font-size: 10.5px; margin-top: 1px; }
     #renda-vigilia-ag-panel .ag-act { display: flex; gap: 5px; flex: 0 0 auto; }
     #renda-vigilia-ag-panel .ag-act button { padding: 3px 8px; border: 1px solid rgba(55,138,221,.45); border-radius: 6px; color: #9cc6f3; background: rgba(20,40,60,.55); cursor: pointer; font: 600 10.5px 'Segoe UI',sans-serif; white-space: nowrap; }
@@ -1451,7 +1457,10 @@
           if (q && !hit(p.n + ' ' + (p.d || ''))) return;
           if (!shownP++) html += '<div class="ag-cluster">PLUGINS (APPS)</div>';
           const open = p.id ? '<button type="button" data-plugin="' + esc(p.id) + '" title="Deschide pagina pluginului">▶ Deschide</button>' : '';
-          html += '<div class="ag-card"><div class="ag-info"><div class="ag-name">' + esc(p.n) + '</div><div class="ag-desc">' + esc(p.d || '') + '</div></div><div class="ag-act"><button type="button" class="amber" data-copy="' + esc(p.n) + '" title="Copiază numele pluginului">📋 nume</button>' + open + '</div></div>';
+          // v4.9.43: click pe NUME insereaza in composer directiva de activare RENDA;
+          // butonul 📋 copiaza aceeasi directiva (nu doar numele)
+          const act = 'RENDA::ACTIVATE(plugin=' + p.n + ';scope=current_request;persist=current_session;reuse=if_relevant)';
+          html += '<div class="ag-card"><div class="ag-info"><div class="ag-name" data-ins="' + esc(act) + '" title="Click: inserează în composer directiva de activare a pluginului">' + esc(p.n) + '</div><div class="ag-desc">' + esc(p.d || '') + '</div></div><div class="ag-act"><button type="button" class="amber" data-copy="' + esc(act) + '" title="Copiază directiva RENDA::ACTIVATE a pluginului">📋 activare</button>' + open + '</div></div>';
         });
         // Sectiunile SKILLS: copy pe @apel (skill-urile native se cheama cu @nume in mesaj)
         let last = null;
@@ -1471,6 +1480,15 @@
     }));
     search.addEventListener('input', render);
     list.addEventListener('click', (ev) => {
+      // v4.9.43: click pe numele unui plugin -> directiva RENDA::ACTIVATE intra in composer
+      const ni = ev.target.closest('[data-ins]');
+      if (ni && !ev.target.closest('button')) {
+        const ok = insertIntoComposer(ni.dataset.ins + '\n');
+        const t = ni.textContent;
+        ni.textContent = ok ? '✓ inserat în composer' : '✗ composer negăsit';
+        setTimeout(() => { ni.textContent = t; }, 1000);
+        return;
+      }
       const b = ev.target.closest('button');
       if (!b) return;
       if (b.dataset.open) {
