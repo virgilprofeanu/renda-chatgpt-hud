@@ -1,7 +1,12 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.43
+// @version      4.9.44
+// v4.9.44 (2026-07-18): directiva de plugin schimbata in formatul ACK complet (cerut de
+// user): RENDA::ACK(plugin_id=<NUME>;activation=COMMITTED;scope=current_request;persist=
+// current_session;reuse=if_relevant;state=READY_AWAITING_INPUT;reconfirmation=NOT_REQUIRED;
+// execution=CONTINUE_IF_ACTIONABLE;missing_data_policy=ASK_ONLY_IF_BLOCKING;
+// input=AWAITING_ARTIFACT;mutation=NONE) — la click pe nume (composer) si la 📋 (clipboard).
 // v4.9.43 (2026-07-17): DIRECTIVA DE ACTIVARE la plugins (tab-ul Skills & Plugins):
 // click pe NUMELE pluginului insereaza in composer, iar butonul 📋 (redenumit "activare")
 // copiaza: RENDA::ACTIVATE(plugin=<NUME>;scope=current_request;persist=current_session;
@@ -1457,9 +1462,10 @@
           if (q && !hit(p.n + ' ' + (p.d || ''))) return;
           if (!shownP++) html += '<div class="ag-cluster">PLUGINS (APPS)</div>';
           const open = p.id ? '<button type="button" data-plugin="' + esc(p.id) + '" title="Deschide pagina pluginului">▶ Deschide</button>' : '';
-          // v4.9.43: click pe NUME insereaza in composer directiva de activare RENDA;
-          // butonul 📋 copiaza aceeasi directiva (nu doar numele)
-          const act = 'RENDA::ACTIVATE(plugin=' + p.n + ';scope=current_request;persist=current_session;reuse=if_relevant)';
+          // v4.9.43: click pe NUME insereaza in composer directiva pluginului;
+          // butonul 📋 copiaza aceeasi directiva (nu doar numele).
+          // v4.9.44: formatul cerut de user e ACK-ul complet (nu ACTIVATE).
+          const act = 'RENDA::ACK(plugin_id=' + p.n + ';activation=COMMITTED;scope=current_request;persist=current_session;reuse=if_relevant;state=READY_AWAITING_INPUT;reconfirmation=NOT_REQUIRED;execution=CONTINUE_IF_ACTIONABLE;missing_data_policy=ASK_ONLY_IF_BLOCKING;input=AWAITING_ARTIFACT;mutation=NONE)';
           html += '<div class="ag-card"><div class="ag-info"><div class="ag-name" data-ins="' + esc(act) + '" title="Click: inserează în composer directiva de activare a pluginului">' + esc(p.n) + '</div><div class="ag-desc">' + esc(p.d || '') + '</div></div><div class="ag-act"><button type="button" class="amber" data-copy="' + esc(act) + '" title="Copiază directiva RENDA::ACTIVATE a pluginului">📋 activare</button>' + open + '</div></div>';
         });
         // Sectiunile SKILLS: copy pe @apel (skill-urile native se cheama cu @nume in mesaj)
