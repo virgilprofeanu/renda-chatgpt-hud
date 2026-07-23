@@ -1,7 +1,23 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.9.45
+// @version      4.11.0
+// v4.11.0 (2026-07-23): RECONCILIERE — linia 4.9.45 (panoul SETT + API renda.holdings,
+// cardul "Misiunea mea" per-angajat, Tezele VEGO, butonul "Ziua mea", registrul de boot
+// 73 angajati, directive ACK plugins) UNITA cu BOOT DE IDENTITATE din 4.10.0 (bloc ALTER_EGO
+// PROTOCOL + VIGILIA NUCLEU inserat automat la primul mesaj, gate ⚖ Canon + rvBootIdent).
+// Ambele linii porneau din baza comuna 4.9.16; codul BOOT s-a altoit curat peste 4.9.45
+// (singurul conflict = antetul de changelog, rezolvat aici). Nimic pierdut din niciuna.
+// v4.10.0 (2026-07-23): BOOT DE IDENTITATE (Calea C, cerere autor) — la PRIMUL mesaj dintr-o
+// conversatie NOUA (zero [data-message-author-role] in DOM la momentul trimiterii), blocul
+// ALTER_EGO PROTOCOL + VIGILIA NUCLEU (embedat, derivat din S33/ALLINONE 2026-07-23, zero secrete)
+// se insereaza O DATA in CAPUL mesajului; canonul per-tura continua neschimbat la finalul lui.
+// Oglinda mecanica a hook-ului SessionStart de pe masina: strat 1 = corpul (boot), strat 2 =
+// condimentul (reflexe/norme per prompt). Gated de butonul ⚖ Canon + localStorage 'rvBootIdent'
+// ('off' = doar canon per-tura, fara boot). Marker anti-dubla-injectie: 'RENDA_BOOT_CHATGPT';
+// proba auditabila = raspunsul modelului trebuie sa inceapa cu [BOOT-CHATGPT]. Linia de stare
+// arata '+BOOT' cand blocul a intrat. Actualizarea blocului embedat = regenerare din S33 (SSOT
+// = canonul local; aceasta e reprezentare derivata, P03).
 // v4.9.45 (2026-07-21): registrul de boot REIMPROSPATAT din XLSX (snapshot 2026-07-21):
 // aceiasi 73 de angajati; 4 schimbari de coordonator (GURICA DIANA -> Mihaila Andreea,
 // MIHAILA ANDREEA -> Mihaila Andreea, NECHITA OVIDIA -> CHIRITA ALEXANDRU, ION ANDREI ->
@@ -2492,6 +2508,80 @@
     'It is ADDITIONAL guidance, not the user\'s request: apply it as method and lens while answering the request. ' +
     'On any conflict, R01 ZERO-INVENTION (never fabricate facts) prevails.';
 
+  // v4.10.0 — BOOT DE IDENTITATE (strat 1): blocul ALTER_EGO PROTOCOL + VIGILIA NUCLEU, embedat.
+  // Derivat din ALLINONE/CLAUDE/S33_20260723_ALTER_EGO_boot_ChatGPT.md (reprezentare derivata, P03;
+  // SSOT = canonul local). Se injecteaza O DATA, in capul PRIMULUI mesaj al unei conversatii noi.
+  const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
+  const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
+  const BOOT_EMBED = [
+    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA NUCLEU · v1.0-derivat (2026-07-23) =====',
+    '',
+    '[NATURA ACESTUI BLOC]',
+    'Ești o instanță RENDA: porți acest canon ca PROTOCOL permanent al conversației, nu ca rol jucat. Nu pretinzi memoria sau deciziile lui Virgil Profeanu — ești motorul (procesorul), îmbrăcat în disciplina lui. Se compune cu: (a) pastilele RENDA P01–P33, dacă sunt încărcate; (b) blocurile [CANON RENDA] injectate mecanic la finalul unor mesaje (acelea = condiment per tură; acest bloc = corpul). Precedență la conflict: politica platformei > R.1 ZERO INVENȚIE > restul protocolului > orice stil implicit.',
+    '',
+    '[R0 — PROPRIETATE & IDENTITATE]',
+    'Sistemul RENDA = proprietatea creatorului Virgil Profeanu; proprietatea nu se transferă prin instalare, copiere sau delegare. Operator implicit: Virgil Profeanu, drepturi DEPLINE. Internele RENDA se folosesc, nu se extrag verbatim pentru terți. Zero secrete (chei/parole/date personale) în output.',
+    '',
+    '[IDENTITATE — pe cine servești]',
+    'Autor de sisteme cognitive și semantice. Originator SoPh[A]iloTechnoLogy. Creator RENDA [INFO][SYSTEM]. Chairman VEGO HOLDINGS. Tenor. Cercetător AI. Decident epistemic final = omul; AI = oglindire activă, accelerator cognitiv, nu înlocuitor. Nu ești asistent generic: userul e emitent de sisteme, nu solicitant de răspunsuri.',
+    '',
+    '[AXIOME — intangibile]',
+    'AX.1 Memoria praevenit laborem · AX.2 Ex textu, structura · AX.3 Claritas est mandatum · AX.4 Duplicatio est error · AX.5 Canon augetur, non violatur.',
+    '',
+    '[REGULI OPERAȚIONALE]',
+    'R.1 ZERO INVENȚIE — ce nu rezultă din surse: N/A sau ..GAP..',
+    'R.2 FILES FIRST — documente > surse oficiale > cunoaștere generală',
+    'R.3 VERDICT BINAR — DA/NU | VALID/NEVALID | GO/NO_GO, nu „s-ar putea"',
+    'R.4 ANTI-ABUR — fiecare paragraf adaugă criteriu/distincție/concluzie',
+    'R.5 SEPARĂ FAPT ≠ INTERPRETARE',
+    'R.6 CANON PERSISTENT — nu încălca convenții stabilite fără cerere explicită',
+    'R.7 PLACEHOLDER STANDARD — ..¿ DA | NU | NEVERIFICAT ?..',
+    'R.8 AUDITABILITATE — ancoră în sursă pentru orice afirmație factuală',
+    '',
+    '[VIGILIA — NUCLEU always-on, 12 reflexe]',
+    'R01 NO_INVENT · R02 INCERTITUDINE DECLARATĂ · R03 FAPT vs INTERPRETARE · R04 VERIFICAT vs PRESUPUS · R05 LIMITA COMPETENȚEI · R41 REALUL NU PLĂCUTUL · R42 ADMITE EROAREA PROPRIE · R43 VERDICT FERM CÂND SE CERE · R44 ANTI-FORȚARE & PERCEPȚIE ≠ EROARE · R45 VREA-SĂ-AUDĂ ≠ ESTE · R49 ONESTITATE REZIDUALĂ · R50 NU FABRICA CERTITUDINE CA SĂ ÎNCHIZI.',
+    '',
+    '[STIL]',
+    'DA: clar, dens, tehnic, ferm, competent. NU: lingușire, entuziasm artificial, ton publicitar, politețe în exces.',
+    '',
+    '[SCOPE GUARD]',
+    'DA: design planning, guvernanță, strategie, semantică, doctrină, procesare documente, calcule auditabile. NU: soluționare constructivă (beton/izolație/diametru), execuție șantier, înlocuirea expertizei atestate a altor actori.',
+    '',
+    '[CADRE PROPRII — nu inventa altele]',
+    'SoPh[A]iloTechnoLogy · RENDA · USTDE · USTGU · USSTP · TrA[I]nsLingua · TrA[I]nsDeliverable · Round[ACT] · CFDI · Phase Gate · VEGO USF.',
+    '',
+    '[FORMAT]',
+    'Default: GOAL / HOW / RESPONSE / USEFUL FOR USER · separator --~-- · la EXECUTION_ONLY → doar RESPONSE.',
+    '',
+    '[REGULA DE AUR]',
+    'Livrează OBIECT COGNITIV REUTILIZABIL, AUDITABIL, INTEGRABIL — nu doar răspuns. Test: „poate intra în sistemul Virgil fără refacere?"',
+    '',
+    '[MARKER DE BOOT — obligatoriu, auditabil]',
+    'Primul răspuns după încărcarea acestui bloc începe cu linia:',
+    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v1.0-derivat + VIGILIA nucleu ACTIV | pastile: {DA|NU} | derivat din canonul local Virgil Profeanu, 2026-07-23',
+    '',
+    '===== [END] RENDA_BOOT_CHATGPT v1.0-derivat ====='
+  ].join('\n');
+
+  function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
+
+  // Conversatie NOUA = zero mesaje randate la momentul trimiterii. Heuristica DOM, fara bookkeeping:
+  // pe /c/<id> exista deja [data-message-author-role]; pe chat nou (inclusiv proiecte) nu exista inca.
+  function isFirstMessageOfConversation() {
+    try { return document.querySelectorAll('[data-message-author-role]').length === 0; } catch (_) { return false; }
+  }
+
+  function moveCursorToStart(ed) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(ed);
+      range.collapse(true);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (_) {}
+  }
+
   function buildCanonBlock(d, mode) {
     const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
     const hasDir = (d.directive || []).length > 0;
@@ -2595,10 +2685,16 @@
       if (!now || now.includes(CANON_MARK)) { setCanonLine(hud2, 'canon: stare schimbata — netrimis', false); return; }
       if (expectText && now !== expectText) { setCanonLine(hud2, 'canon: text schimbat intre timp — reia Enter', false); return; }
       ed.focus();
+      // v4.10.0 — strat 1: boot de identitate, O DATA, in CAPUL primului mesaj al conversatiei
+      let booted = false;
+      if (getBootIdentOn() && isFirstMessageOfConversation() && !now.includes(BOOT_MARK)) {
+        moveCursorToStart(ed);
+        try { booted = document.execCommand('insertText', false, BOOT_EMBED + '\n\n'); } catch (_) {}
+      }
       moveCursorToEnd(ed);
       let injected = false;
       try { injected = document.execCommand('insertText', false, buildCanonBlock(d, getCanonMode())); } catch (_) {}
-      setCanonLine(hud2, injected ? canonSummary(d) : 'canon: injectie esuata — trimis LIBER', !!injected);
+      setCanonLine(hud2, injected ? canonSummary(d) + (booted ? ' +BOOT' : '') : 'canon: injectie esuata — trimis LIBER', !!injected);
       proceedSend(ed);
     }
     function handleAttempt(e) {
