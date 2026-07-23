@@ -1,7 +1,10 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.12.0
+// @version      4.12.1
+// v4.12.1 (2026-07-24): fallback-ul LOCAL primeste lang_swap + dedup pe unitate (oglinda serverului):
+// rvDetectLang (RO implicit / EN / LA>=3 markeri) + rvLangSwapDedup — corpusul trilingv se serveste
+// in limba promptului si o unitate apare o singura data per tura, SI cand HUD-ul e offline.
 // v4.12.0 (2026-07-24): CORPUS COMPLET + NOTA DE GUVERNARE + ACTIVATORI. (1) Pool 699 norme:
 // 141 EL_EA_T + 55 axiome proprii (publice) + 146 IDEI-FORTA AUTOR (corpus curat RO, IFA-*)
 // + 357 CODURI SoPh[A]iloTechnoLogy (7 manifeste x 17 coduri x 3 limbi EN/RO/LA — o intrare
@@ -2488,10 +2491,54 @@
     }
     return out;
   }
+  // v4.12.1 — oglinda lang_swap-ului din server (fallback-ul LOCAL avea gaura): corpusul trilingv
+  // se serveste in LIMBA promptului (radacinile latine comune dau egalitati cazute pe EN), iar o
+  // unitate apare O SINGURA data per tura (dedup pe unit). Fail-open: orice eroare -> lista neatinsa.
+  function rvDetectLang(text) {
+    const p = ' ' + String(text || '').toLowerCase() + ' ';
+    let ro = (p.match(/[ăâîșț]/g) || []).length;
+    ['si', 'sa', 'de', 'cu', 'pe', 'este', 'sunt', 'care', 'pentru', 'vreau', 'fara', 'asta'].forEach((w) => { ro += p.split(' ' + w + ' ').length - 1; });
+    let en = 0;
+    ['the', 'and', 'with', 'for', 'that', 'this', 'are', 'have', 'will', 'what', 'how', 'not'].forEach((w) => { en += p.split(' ' + w + ' ').length - 1; });
+    let la = 0;
+    ['est', 'enim', 'ergo', 'atque', 'igitur', 'quoniam', 'quibus', 'esse'].forEach((w) => { la += p.split(' ' + w + ' ').length - 1; });
+    if (la >= 3 && la > en && la > ro) return 'LA';
+    if (en > ro) return 'EN';
+    return 'RO';
+  }
+  let rvEmbedIdx = null;   // cache: id -> intrare embed + (unit|lang) -> intrare
+  function rvLangSwapDedup(text, norme) {
+    try {
+      if (!rvEmbedIdx) {
+        rvEmbedIdx = {byId: {}, byUL: {}};
+        (CANON_EMBED.norme || []).forEach((n) => {
+          rvEmbedIdx.byId[n.id] = n;
+          if (n.unit && n.lang) rvEmbedIdx.byUL[n.unit + '|' + n.lang] = n;
+        });
+      }
+      const lang = rvDetectLang(text);
+      const seen = new Set();
+      const out = [];
+      (norme || []).forEach((it) => {
+        if (!it) return;
+        const full = rvEmbedIdx.byId[it.id] || it;
+        let pick = it;
+        if (full.unit && full.lang && full.lang !== lang) {
+          const sib = rvEmbedIdx.byUL[full.unit + '|' + lang];
+          if (sib) pick = Object.assign({}, sib, {why: it.why});   // fratele in limba promptului, pastram motivul
+        }
+        const u = (rvEmbedIdx.byId[pick.id] || pick).unit;
+        if (u) { if (seen.has(u)) return; seen.add(u); }           // o singura limba per unitate per tura
+        out.push(pick);
+      });
+      return out;
+    } catch (_) { return norme; }
+  }
+
   function localCanonSelect(text) {
     const now = new Date();
     const ds = '' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
-    return {ok: true, source: 'local', reflexe: localPickReflexes(text), norme: localPickNorme(text, ds), directive: withUserDirective([])};
+    return {ok: true, source: 'local', reflexe: localPickReflexes(text), norme: rvLangSwapDedup(text, localPickNorme(text, ds)), directive: withUserDirective([])};
   }
   // v3.7: adauga directiva LOCALA a userului (din panou) la orice lista de directive (HUD sau local)
   function withUserDirective(dirs) {
