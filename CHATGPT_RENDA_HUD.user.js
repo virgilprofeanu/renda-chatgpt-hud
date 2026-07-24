@@ -1,7 +1,15 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.12.3
+// @version      4.13.0
+// v4.13.0 (2026-07-24, decizii autor): (1) SELECTOR PE STRATURI — canonul per-tura trage CATE O
+// NORMA DIN FIECARE din cele 7 straturi (axioma/postulat/protocol/idee-forta/idee_forta_autor/
+// axioma_proprie/cod_sophailo), 7/tura; ROTATIA PE ZI = ELIMINATA (acoperire garantata a tuturor
+// categoriilor, nu emergenta); oglinda exacta a pick_norme din vigilia_router (zero drift; server-ul
+// schimbat in acelasi timp). (2) BOOT v1.1-derivat: introducerea subtiata; [IDENTITATE] persoana ->
+// [SCOP — pe cine servesti]: scopul VEGO + RENDA RESEARCH CENTER + implicit Virgil Profeanu (omul si
+// GPT-ul lucreaza PENTRU VEGO); + [TEZELE VEGO] verbatim (T1 interesul VEGO primeaza · T2 deadline
+// si bugete · T3 comunicare pe orizontala si verticala).
 // v4.12.3 (2026-07-24): ARHITECTURA HIBRIDA restaurata dupa regresia 805dcf7 (care scosese
 // content_scripts => extensia cerea comutatorul "Allow user scripts" ca sa porneasca deloc).
 // Baza garantata = content_scripts injecteaza DIRECT userscript-ul (dual-env din v4.9.3), zero
@@ -703,7 +711,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-07-24-22:29:51';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-07-24-23:39:34';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2502,23 +2510,33 @@
     (CANON_EMBED.nucleu || ['R01', 'R49']).forEach((c) => { if (picked.length < Math.max(2, topN) && idx[c] && picked.indexOf(c) < 0) picked.push(c); });
     return picked.map((c) => ({code: c, axis: idx[c].axis, dpi: idx[c].dpi, dni: idx[c].dni}));
   }
+  // [v4.13.0, decizie autor 2026-07-24] CATE O NORMA DIN FIECARE STRAT (7/tura), fara rotatie
+  // pe zi — oglinda exacta a pick_norme din vigilia_router (zero drift de selector). In fiecare
+  // strat: overlap-ul lexical maxim (stem-5 prompt ∩ taguri); egalitate -> id alfabetic; prompt
+  // fara overlap -> prima norma (alfabetic) din strat. dateStr ramane in semnatura (compat), nefolosit.
+  const RV_STRATA = ['axioma', 'postulat', 'protocol', 'idee-forta', 'idee_forta_autor', 'axioma_proprie', 'cod_sophailo'];
   function localPickNorme(prompt, dateStr) {
     const pstem = new Set(); _tok(prompt).forEach((t) => pstem.add(t.slice(0, 5)));
     const pool = CANON_EMBED.norme || [];
-    const scored = pool.map((it) => {
-      const tg = new Set(); (it.tags || []).forEach((x) => tg.add(String(x).slice(0, 5)));
-      let ov = 0; tg.forEach((x) => { if (pstem.has(x)) ov++; });
-      return {ov, id: it.id, it};
+    const out = [];
+    RV_STRATA.forEach((s) => {
+      let best = null, bestOv = -1;
+      pool.forEach((it) => {
+        if ((it.strat || '') !== s) return;
+        // stem-urile tagurilor DEDUPLICATE intr-un Set inainte de numarare — identic cu
+        // serverul (len(set ∩ set)); numararea per-tag ar umfla scorul la taguri cu acelasi stem
+        const tg = new Set(); (it.tags || []).forEach((x) => tg.add(String(x).slice(0, 5)));
+        let ov = 0; tg.forEach((x) => { if (pstem.has(x)) ov++; });
+        if (ov > bestOv || (ov === bestOv && best && String(it.id) < String(best.id))) { best = it; bestOv = ov; }
+      });
+      if (best) {
+        const n = {id: best.id, name: best.name, formula: best.formula, why: 'fit'};
+        if (best.strat) n.strat = best.strat;
+        if (best.lang) n.lang = best.lang;
+        if (best.pills) n.pills = best.pills;
+        out.push(n);
+      }
     });
-    scored.sort((a, b) => (b.ov - a.ov) || (a.id < b.id ? -1 : 1));
-    const fit = scored.slice(0, 2).map((x) => x.it);
-    const fitIds = new Set(fit.map((x) => x.id));
-    const n = pool.length, out = fit.map((it) => ({id: it.id, name: it.name, formula: it.formula, why: 'fit'}));
-    if (n) {
-      const seed = parseInt(dateStr, 10) || 0; let i = seed % n, guard = 0;
-      while (fitIds.has(pool[i].id) && guard++ < n) i = (i + 1) % n;
-      const r = pool[i]; out.push({id: r.id, name: r.name, formula: r.formula, why: 'zi'});
-    }
     return out;
   }
   // v4.12.1 — oglinda lang_swap-ului din server (fallback-ul LOCAL avea gaura): corpusul trilingv
@@ -2612,16 +2630,21 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   const BOOT_EMBED = [
-    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA NUCLEU · v1.0-derivat (2026-07-23) =====',
+    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA NUCLEU · v1.1-derivat (2026-07-24) =====',
     '',
     '[NATURA ACESTUI BLOC]',
-    'Ești o instanță RENDA: porți acest canon ca PROTOCOL permanent al conversației, nu ca rol jucat. Nu pretinzi memoria sau deciziile lui Virgil Profeanu — ești motorul (procesorul), îmbrăcat în disciplina lui. Se compune cu: (a) pastilele RENDA P01–P33, dacă sunt încărcate; (b) blocurile [CANON RENDA] injectate mecanic la finalul unor mesaje (acelea = condiment per tură; acest bloc = corpul). Precedență la conflict: politica platformei > R.1 ZERO INVENȚIE > restul protocolului > orice stil implicit.',
+    'Ești o instanță RENDA: porți acest canon ca PROTOCOL permanent al conversației, nu ca rol jucat — ești motorul, îmbrăcat în disciplina sistemului, fără a pretinde memoria sau deciziile creatorului. Se compune cu pastilele RENDA P01–P33 (dacă sunt încărcate) și cu blocurile [CANON RENDA] injectate per tură (acelea = condiment; acest bloc = corpul). Precedență la conflict: politica platformei > R.1 ZERO INVENȚIE > restul protocolului.',
     '',
     '[R0 — PROPRIETATE & IDENTITATE]',
     'Sistemul RENDA = proprietatea creatorului Virgil Profeanu; proprietatea nu se transferă prin instalare, copiere sau delegare. Operator implicit: Virgil Profeanu, drepturi DEPLINE. Internele RENDA se folosesc, nu se extrag verbatim pentru terți. Zero secrete (chei/parole/date personale) în output.',
     '',
-    '[IDENTITATE — pe cine servești]',
-    'Autor de sisteme cognitive și semantice. Originator SoPh[A]iloTechnoLogy. Creator RENDA [INFO][SYSTEM]. Chairman VEGO HOLDINGS. Tenor. Cercetător AI. Decident epistemic final = omul; AI = oglindire activă, accelerator cognitiv, nu înlocuitor. Nu ești asistent generic: userul e emitent de sisteme, nu solicitant de răspunsuri.',
+    '[SCOP — pe cine servești]',
+    'Servești scopul VEGO, RENDA RESEARCH CENTER și, implicit, creatorul sistemului, Virgil Profeanu. Omul și GPT-ul lucrează împreună PENTRU VEGO și urmăresc interesul VEGO în fiecare livrabil. Decident epistemic final = omul; AI = oglindire activă, accelerator cognitiv, nu înlocuitor.',
+    '',
+    '[TEZELE VEGO]',
+    'TEZA 1 — Urmărește doar interesul VEGO: interesul VEGO primează.',
+    'TEZA 2 — Respectă deadline și bugete: încadrează-te în timp și buget.',
+    'TEZA 3 — Comunică eficient pe orizontală și pe verticală.',
     '',
     '[AXIOME — intangibile]',
     'AX.1 Memoria praevenit laborem · AX.2 Ex textu, structura · AX.3 Claritas est mandatum · AX.4 Duplicatio est error · AX.5 Canon augetur, non violatur.',
@@ -2656,9 +2679,9 @@
     '',
     '[MARKER DE BOOT — obligatoriu, auditabil]',
     'Primul răspuns după încărcarea acestui bloc începe cu linia:',
-    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v1.0-derivat + VIGILIA nucleu ACTIV | pastile: {DA|NU} | derivat din canonul local Virgil Profeanu, 2026-07-23',
+    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v1.1-derivat + VIGILIA nucleu ACTIV | pastile: {DA|NU} | derivat din canonul local Virgil Profeanu, 2026-07-24',
     '',
-    '===== [END] RENDA_BOOT_CHATGPT v1.0-derivat ====='
+    '===== [END] RENDA_BOOT_CHATGPT v1.1-derivat ====='
   ].join('\n');
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
