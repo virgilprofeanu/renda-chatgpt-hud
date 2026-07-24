@@ -1,7 +1,15 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.12.2
+// @version      4.12.3
+// v4.12.3 (2026-07-24): ARHITECTURA HIBRIDA restaurata dupa regresia 805dcf7 (care scosese
+// content_scripts => extensia cerea comutatorul "Allow user scripts" ca sa porneasca deloc).
+// Baza garantata = content_scripts injecteaza DIRECT userscript-ul (dual-env din v4.9.3), zero
+// setari de browser, Chrome+Edge; userScripts = strat OPTIONAL doar pt auto-update (se inregistreaza
+// numai la versiune strict mai noua). Garda anti-dubla-montare eticheteaza ruta (CS-/US-/TM) in
+// data-rv-hud-loaded + log discret la cedare. Puntea background accepta si https://renda.holdings
+// (pe ruta content-script apiFetch alege puntea, iar fara adresa in ALLOWED cererile mureau tacut).
+// Release-gate: poarta G9 (anti-regresie content_scripts) + verificare dual-env fail-closed.
 // v4.12.2 (2026-07-24): carcasa aliniata — manifest.version = versiunea userscript (numarul de pe cardul
 // chrome://extensions devine cel real); BUILD_STAMP restampilat; fara schimbari de cod HUD.
 // v4.12.1 (2026-07-24): fallback-ul LOCAL primeste lang_swap + dedup pe unitate (oglinda serverului):
@@ -695,7 +703,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-07-24-18:10:49';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-07-24-22:29:51';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
