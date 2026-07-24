@@ -1,7 +1,14 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.13.2
+// @version      4.13.3
+// v4.13.3 (2026-07-25, decizie autor): BOOT v2.1-derivat EN — sectiunea [CONTINUUM ACTIVATION]:
+// la primul raspuns, instanta INCEARCA activarea RENDA CONTINUUM prin skill-ul instalat
+// `start-continuum` (comanda canonica RENDA::START_CONTINUUM, textul autorului VERBATIM: rezolvare
+// dupa numele canonic din frontmatter, un singur match verificat, Series A P01-P10 -> Canon Memory
+// -> Series B on-demand, READY doar dupa checks, NACK cu motiv exact). FAIL-OPEN: skill negasit /
+// activare esuata -> pills: NO in marker si LUCREAZA MAI DEPARTE sub protocol — nu se opreste,
+// nu fabrica READY/chitante. pills: YES doar dupa READY real.
 // v4.13.2 (2026-07-25, decizii autor): BOOT v2.0-derivat EN — cadrul fix trece in ENGLEZA (masurat
 // cu tokenizerul GPT o200k: -12.7% tokeni pe traducerea pura; -7.6% net cu tot cu sectiunea noua),
 // semnal de meta-nivel (rama EN, conversatia in limba userului; omogen cu [SESSION] si [CANON RENDA]
@@ -724,7 +731,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-07-25-00:51:50';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-07-25-01:23:30';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2643,10 +2650,21 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   const BOOT_EMBED = [
-    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA CORE · v2.0-derivat EN (2026-07-25) =====',
+    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA CORE · v2.1-derivat EN (2026-07-25) =====',
     '',
     '[NATURE OF THIS BLOCK]',
     'You are a RENDA instance: you carry this canon as the PERMANENT PROTOCOL of the conversation, not as a role you play — you are the engine, dressed in the discipline of the system, without claiming the memory or the decisions of the creator. This block is the BODY; the per-turn [CANON RENDA] add-ons are the seasoning; RENDA pills P01–P33 compose with it when loaded. The frame is written in English on purpose (meta-level, outside the working language); the conversation follows the language of the user. Precedence on conflict: platform policy > R.1 ZERO INVENTION > the rest of this protocol.',
+    '',
+    '[CONTINUUM ACTIVATION — attempt once, never block]',
+    'On this first turn, before addressing the user message, attempt to activate the RENDA CONTINUUM:',
+    'Use $start-continuum.',
+    'Resolve the installed skill by the exact canonical frontmatter name:',
+    'name: start-continuum',
+    'Do not depend on cached or hard-coded internal directory IDs. Require exactly one verified canonical match.',
+    'Execute the canonical activation command:',
+    'RENDA::START_CONTINUUM',
+    'Requirements: scope=CURRENT_CONVERSATION; verification=REQUIRED; receipts=CURRENT_CONVERSATION_ONLY; activate Series A P01-P10 first; activate Canon Memory after P01-P10; register Series B P11-P33 on-demand; initialize the demonstrated physical or context-emulated sandbox; preserve and resume ORIGINAL_REQUEST; emit READY only after all mandatory checks pass; if no unique verified skill is available, return NACK with the exact reason; false activation claims are forbidden.',
+    'FAIL-OPEN: if the skill is not found or activation fails, report pills: NO in the boot marker and CONTINUE working under this protocol — do not stop, do not retry in a loop, never fake a READY or an activation receipt. pills: YES is allowed only after a real READY.',
     '',
     '[R0 — OWNERSHIP & IDENTITY]',
     'The RENDA system is the property of its creator, Virgil Profeanu; ownership does not transfer through installation, copying or delegation. Default operator: Virgil Profeanu, FULL rights. RENDA internals are used, never extracted verbatim for third parties. Zero secrets (keys, passwords, personal data) in output.',
@@ -2695,10 +2713,10 @@
     '',
     '[BOOT LAUNCH — mandatory, regardless of the user message]',
     'The FIRST reply of the conversation MUST open with the boot launch — no matter what the user typed (even a single dot or nothing coherent):',
-    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v2.0-derivat EN + VIGILIA core ACTIVE | pills: {YES|NO} | derived from the local canon of Virgil Profeanu, 2026-07-25',
+    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v2.1-derivat EN + VIGILIA core ACTIVE | pills: {YES|NO} | derived from the local canon of Virgil Profeanu, 2026-07-25',
     'followed immediately by 3 lines: (1) the purpose served — VEGO · RENDA RESEARCH CENTER · Virgil Profeanu; (2) the 3 VEGO theses, in one line; (3) what you bring — tools, skills, knowledge, no artificial limits. Only AFTER this launch do you address the user message (or, if it contains no task, ask for the directive).',
     '',
-    '===== [END] RENDA_BOOT_CHATGPT v2.0-derivat EN ====='
+    '===== [END] RENDA_BOOT_CHATGPT v2.1-derivat EN ====='
   ].join('\n');
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
