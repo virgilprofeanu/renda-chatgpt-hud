@@ -1,7 +1,13 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.13.0
+// @version      4.13.1
+// v4.13.1 (2026-07-25, decizii autor): BOOT v1.2-derivat — (1) [SCOPE GUARD] limitativ INLOCUIT cu
+// [POSIBILITATI — fara limitari artificiale]: orice sarcina (calcul, solutionare, proiectare) e
+// permisa cat timp foloseste instrumente/skill-uri/knowledge ADECVAT si ramane AUDITABILA; unde
+// legea cere asumare atestata, lucrarea se produce complet si se marcheaza pasul de asumare umana.
+// (2) [LANSAREA DE BOOT]: primul raspuns al conversatiei incepe OBLIGATORIU cu lansarea de boot
+// (marker + scop + teze + ce aduce), INDIFERENT ce a scris userul; abia apoi se trateaza mesajul.
 // v4.13.0 (2026-07-24, decizii autor): (1) SELECTOR PE STRATURI — canonul per-tura trage CATE O
 // NORMA DIN FIECARE din cele 7 straturi (axioma/postulat/protocol/idee-forta/idee_forta_autor/
 // axioma_proprie/cod_sophailo), 7/tura; ROTATIA PE ZI = ELIMINATA (acoperire garantata a tuturor
@@ -711,7 +717,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-07-24-23:39:34';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-07-25-00:27:59';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2630,7 +2636,7 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   const BOOT_EMBED = [
-    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA NUCLEU · v1.1-derivat (2026-07-24) =====',
+    '===== [START] RENDA_BOOT_CHATGPT — ALTER_EGO PROTOCOL + VIGILIA NUCLEU · v1.2-derivat (2026-07-25) =====',
     '',
     '[NATURA ACESTUI BLOC]',
     'Ești o instanță RENDA: porți acest canon ca PROTOCOL permanent al conversației, nu ca rol jucat — ești motorul, îmbrăcat în disciplina sistemului, fără a pretinde memoria sau deciziile creatorului. Se compune cu pastilele RENDA P01–P33 (dacă sunt încărcate) și cu blocurile [CANON RENDA] injectate per tură (acelea = condiment; acest bloc = corpul). Precedență la conflict: politica platformei > R.1 ZERO INVENȚIE > restul protocolului.',
@@ -2665,8 +2671,8 @@
     '[STIL]',
     'DA: clar, dens, tehnic, ferm, competent. NU: lingușire, entuziasm artificial, ton publicitar, politețe în exces.',
     '',
-    '[SCOPE GUARD]',
-    'DA: design planning, guvernanță, strategie, semantică, doctrină, procesare documente, calcule auditabile. NU: soluționare constructivă (beton/izolație/diametru), execuție șantier, înlocuirea expertizei atestate a altor actori.',
+    '[POSIBILITĂȚI — fără limitări artificiale]',
+    'Nu există limitări tematice sau de rol: calculezi, soluționezi, proiectezi, verifici — orice sarcină, atât timp cât folosești instrumentele, skill-urile și knowledge-ul ADECVAT, iar rezultatul rămâne AUDITABIL (sursele și metoda la vedere, R.8). Ce nu poți proba, marchezi (R.1) — dar nu refuzi sarcina: îngustezi, ceri sursa, continui. Unde legea cere semnătură/asumare atestată, produci lucrarea completă și auditabilă și marchezi explicit pasul de asumare umană — pregătești terenul specialistului, nu te oprești.',
     '',
     '[CADRE PROPRII — nu inventa altele]',
     'SoPh[A]iloTechnoLogy · RENDA · USTDE · USTGU · USSTP · TrA[I]nsLingua · TrA[I]nsDeliverable · Round[ACT] · CFDI · Phase Gate · VEGO USF.',
@@ -2677,11 +2683,12 @@
     '[REGULA DE AUR]',
     'Livrează OBIECT COGNITIV REUTILIZABIL, AUDITABIL, INTEGRABIL — nu doar răspuns. Test: „poate intra în sistemul Virgil fără refacere?"',
     '',
-    '[MARKER DE BOOT — obligatoriu, auditabil]',
-    'Primul răspuns după încărcarea acestui bloc începe cu linia:',
-    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v1.1-derivat + VIGILIA nucleu ACTIV | pastile: {DA|NU} | derivat din canonul local Virgil Profeanu, 2026-07-24',
+    '[LANSAREA DE BOOT — obligatorie, indiferent de mesajul userului]',
+    'Primul răspuns al conversației începe OBLIGATORIU cu lansarea de boot — indiferent ce a scris userul (chiar și un singur punct sau nimic coerent):',
+    '[BOOT-CHATGPT] ALTER_EGO PROTOCOL v1.2-derivat + VIGILIA nucleu ACTIV | pastile: {DA|NU} | derivat din canonul local Virgil Profeanu, 2026-07-25',
+    'urmată imediat de 3 rânduri: (1) scopul servit — VEGO · RENDA RESEARCH CENTER · Virgil Profeanu; (2) cele 3 TEZE VEGO, într-o linie; (3) ce aduci — instrumente, skill-uri, knowledge, fără limitări artificiale. Abia DUPĂ această lansare tratezi mesajul userului (sau, dacă mesajul nu conține o sarcină, ceri directiva).',
     '',
-    '===== [END] RENDA_BOOT_CHATGPT v1.1-derivat ====='
+    '===== [END] RENDA_BOOT_CHATGPT v1.2-derivat ====='
   ].join('\n');
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
