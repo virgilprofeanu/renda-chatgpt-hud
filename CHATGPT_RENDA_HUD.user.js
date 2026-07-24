@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.12.1
+// @version      4.12.2
+// v4.12.2 (2026-07-24): carcasa aliniata — manifest.version = versiunea userscript (numarul de pe cardul
+// chrome://extensions devine cel real); BUILD_STAMP restampilat; fara schimbari de cod HUD.
 // v4.12.1 (2026-07-24): fallback-ul LOCAL primeste lang_swap + dedup pe unitate (oglinda serverului):
 // rvDetectLang (RO implicit / EN / LA>=3 markeri) + rvLangSwapDedup — corpusul trilingv se serveste
 // in limba promptului si o unitate apare o singura data per tura, SI cand HUD-ul e offline.
@@ -673,7 +675,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-07-11-16:34:27';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-07-24-18:10:49';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
