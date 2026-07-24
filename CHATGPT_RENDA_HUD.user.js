@@ -403,9 +403,29 @@
   // v4.9.7: garda anti-dubla-montare. HUD-ul poate sosi pe mai multe cai simultan
   // (content_scripts de pe disc + overlay userScripts cu versiunea noua + eventual
   // Tampermonkey) — se monteaza DOAR prima instanta; restul se retrag tacut.
+  // (2026-07-24) Claim-ul poarta ACUM eticheta rutei care a montat (TM = Tampermonkey /
+  // US-<ver> = overlay chrome.userScripts / CS-<ver> = content script de pe disc) + un log
+  // OPT-IN (localStorage.setItem('rvDebug','1')) pe instanta care cedeaza: un `return` mut
+  // arata identic cu "HUD spart", asa ca in F12 se vede CINE ruleaza si CINE s-a retras.
+  // De ce tine la cursa: cele doua rute stau in LUMI diferite (izolata vs USER_SCRIPT) si NU
+  // impart window — dar impart <html>. Citirea + scrierea atributului sunt SINCRONE si sunt
+  // primul lucru executat, deci nu exista fereastra in care ambele sa treaca de test.
+  // Compatibil in ambele sensuri cu garda veche (valoarea '1'): testul e doar existenta.
   try {
-    if (document.documentElement.hasAttribute('data-rv-hud-loaded')) return;
-    document.documentElement.setAttribute('data-rv-hud-loaded', '1');
+    var rvRoute = 'CS';
+    try { if (typeof GM_info !== 'undefined' && GM_info) rvRoute = 'TM'; } catch (_) {}
+    try { if (rvRoute === 'CS' && typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) rvRoute = 'US-' + __RENDA_VER__; } catch (_) {}
+    try { if (rvRoute === 'CS') { var rvMv = chrome.runtime.getManifest().version; if (rvMv) rvRoute = 'CS-' + rvMv; } } catch (_) {}
+    var rvHeldBy = document.documentElement.getAttribute('data-rv-hud-loaded');
+    if (rvHeldBy !== null) {
+      try {
+        if (localStorage.getItem('rvDebug') === '1') {
+          console.log('%c[RENDA HUD]', 'color:#378ADD;font-weight:600', 'instanta ' + rvRoute + ' CEDEAZA — HUD deja montat de: ' + (rvHeldBy || '?'));
+        }
+      } catch (_) {}
+      return;
+    }
+    document.documentElement.setAttribute('data-rv-hud-loaded', rvRoute);
   } catch (_) {}
 
   // v4.9.5: DIAGNOSTIC — loguri in consola tab-ului (F12). Opt-in ca sa nu spameze colegii:

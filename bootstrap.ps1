@@ -6,8 +6,9 @@
 #   1. descarca arhiva ZIP a repo-ului (branch main) - fara git
 #   2. o pune in D:\apps\renda-hud-chatgpt (sau %LOCALAPPDATA%\apps\... daca nu e D:)
 #   3. pune calea in clipboard si deschide chrome://extensions
-# Raman cei 3 pasi din Chrome (Developer mode / Load unpacked / Ctrl+V) + pe
-# Chrome 138+ comutatorul "Allow user scripts" pe cardul extensiei.
+# Raman cei 2 pasi din Chrome (Developer mode / Load unpacked / Ctrl+V). HUD-ul
+# porneste FARA nicio alta setare (baza = content_scripts). OPTIONAL, pe Chrome/
+# Edge 138+, comutatorul "Allow user scripts" activeaza si auto-update-ul.
 # Fisier ASCII-only (PS 5.1 fara BOM = ANSI).
 # ============================================================================
 $ErrorActionPreference = 'Stop'
@@ -61,7 +62,9 @@ Write-Host ""
 Write-Host "MAI AI DE FACUT IN CHROME (o singura data):" -ForegroundColor Cyan
 Write-Host "  1. Porneste 'Developer mode' (dreapta-sus)"
 Write-Host "  2. 'Load unpacked' -> Ctrl+V in bara de cale -> Enter -> Select Folder"
-Write-Host "  3. DOAR pe Chrome 138+: pe cardul extensiei, activeaza 'Allow user scripts'"
+Write-Host "  (gata - HUD-ul merge fara alte setari)"
+Write-Host "  OPTIONAL, pt auto-update din GitHub (Chrome/Edge 138+):"
+Write-Host "    pe cardul extensiei activeaza 'Allow user scripts'"
 Write-Host ""
 Write-Host "Apoi deschide https://chatgpt.com - banda HUD apare sus."
 Write-Host "De acum extensia se actualizeaza SINGURA din GitHub (nimic de instalat in plus)."

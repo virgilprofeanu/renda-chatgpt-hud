@@ -14,9 +14,20 @@
     "https://chat.openai.com/*",
     "http://127.0.0.1:8765/*",
     "http://localhost:8765/*",
+    "https://renda.holdings/*",
     "https://raw.githubusercontent.com/*"
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["CHATGPT_RENDA_HUD.user.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
