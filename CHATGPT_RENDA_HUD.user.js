@@ -1,7 +1,14 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.14.0
+// @version      4.15.0
+// v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
+// gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
+// GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
+// garda data-rv-hud-loaded fac re-injectia inofensiva). Un singur cod => identitate prin
+// constructie (AX.4). + garda window.__rvAutoBypass in handleAttempt: apelul AUTOMAT
+// (renda_gpt.py/GPTI) NU primeste canonul — canonul ramane pe trimiterea manuala (D2 Virgil
+// 2026-07-25, comutabil); in Chrome flagul e inert (nimeni nu-l seteaza).
 // v4.14.0 (2026-07-25, cerinta autor): SHKN — SHARED HUMAN KNOWLEDGE. Buton nou 📚 SHKN in nav +
 // panou-biblioteca de experienta umana TESTATA (oamenii trimit catre Virgil, Virgil incarca in
 // SHKN/ITEMS/*.md; build_shkn_data.py coace itemii intre markerii RENDA_SHKN_DATA, cu 20-30
@@ -2997,6 +3004,11 @@
     }
     function handleAttempt(e) {
       if (canonBypass) { canonBypass = false; return; }   // trimiterea noastra programatica / fail-open
+      // v4.15.0 — Electron HUD: apelul AUTOMAT (renda_gpt.py -> GPTI din pages/gpt.html) seteaza
+      // window.__rvAutoBypass in webview inainte de send: canonul ramane DOAR pe trimiterea MANUALA
+      // (decizie Virgil 2026-07-25; comutabil la "canon si pe automat" scotand flagul din gpt.html).
+      // In Chrome flagul nu e setat de nimeni (lumea izolata a content-scriptului) => inert.
+      if (window.__rvAutoBypass === true) return;
       if (!getCanonOn() || canonBusy) return;
       const ed = findComposer();
       if (!ed) return;
