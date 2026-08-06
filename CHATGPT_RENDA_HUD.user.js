@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.26.0
+// @version      4.27.0
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -741,7 +741,10 @@
   const CANON_KEY = 'rendaVigiliaCanonOn';     // v3.3: ON/OFF injectie canon per-tura (default ON)
   const UDIR_KEY = 'rendaVigiliaUserDirective'; // v3.7: directiva canon a userului (capsula USER DIRECTIVE)
   const IDENT_KEY = 'rendaVigiliaSessionIdentity'; // v3.9: identitatea userului (Nume Prenume) — declaratie de sesiune
-  const CANON_MARK = '[CANON RENDA';           // marker anti-dubla-injectie in acelasi mesaj
+  // v4.27.0 — envelope canonic RENDA_TRAINSDOING_HUD_V1 (decizia autorului 2026-08-04).
+  // Markerul anti-dubla-injectie ESTE linia BEGIN a envelope-ului => garda si emisia nu pot diverge.
+  const CANON_MARK = '[RENDA_TRAINSDOING_HUD_V1_BEGIN]';   // marker anti-dubla-injectie in acelasi mesaj
+  const ENV_END    = '[RENDA_TRAINSDOING_HUD_V1_END]';
   // v3.10: versiunea + momentul build-ului, AFISATE IN BANDA (auditabilitate: banda arata versiunea
   // codului care RULEAZA in acest tab — daca difera de ce e in Tampermonkey, tabul e vechi -> reload).
   const RUNNING_VER = (function () {
@@ -751,7 +754,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-08-04-04:27:49';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-08-07-01:26:18';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2779,6 +2782,8 @@
   // Preambul scurt in engleza: spune AI-ului CE e pachetul asta si cum sa-l trateze.
   // Capsulat cu separatoare ----- : directiva user (aditionala) intr-o capsula, canonul in alta.
   const SEP = '-----';
+  // [RETRAS din envelope la v4.27.0 — envelope-ul e strict cel cerut de autor; textul ramane
+  //  aici pentru reactivare, guvernanta o poarta acum sectiunea [CANON MEMORY] din BOOT.]
   const PREAMBLE = 'RENDA ADD-ON — an auto-selected behavioral layer appended to the user message above. ' +
     'It is ADDITIONAL guidance, not the user\'s request: apply it as method and lens while answering the request. ' +
     'GOVERNANCE NOTE: norms tagged [AX-RENDA-*] (own axioms, author-ratified), [IFA-*] (author\'s driving ideas) and ' +
@@ -2819,32 +2824,38 @@
 
   function buildCanonBlock(d, mode) {
     const cut = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-    const hasDir = (d.directive || []).length > 0;
-    const out = ['', '', SEP, CANON_MARK + '] ' + PREAMBLE];
+    const reflexe = d.reflexe || [];
+    const norme = d.norme || [];
+    // Envelope-ul se emite NUMAI dupa o selectie reusita; selectie goala => nimic (zero envelope partial)
+    if (!reflexe.length && !norme.length) return '';
 
-    // CAPSULA 1 — DIRECTIVA USER (persistenta, aditionala), doar daca exista
-    if (hasDir) {
-      out.push(SEP);
-      (d.directive || []).forEach((dd) => {
-        out.push('[USER DIRECTIVE — persistent, additional: ' + cut(dd.text, mode === 'compact' ? 220 : 400) + ']');
-      });
-    }
+    const out = ['', ''];
 
-    // CAPSULA 2 — CANON (reflexe + norme selectate)
-    out.push(SEP);
+    // DIRECTIVA USER = textul PROPRIU al userului, nu continut generat de HUD => ramane IN AFARA
+    // envelope-ului (envelope-ul poarta SOURCE=RENDA_HUD si contine strict selectia canonica).
+    (d.directive || []).forEach((dd) => {
+      out.push('[USER DIRECTIVE — persistent, additional: ' + cut(dd.text, mode === 'compact' ? 220 : 400) + ']');
+    });
+
+    out.push(CANON_MARK);
+    out.push('SOURCE=RENDA_HUD');
+    out.push('SCOPE=CURRENT_MESSAGE_ONLY');
+    out.push('SCHEMA=1');
+    out.push('MODE=' + (mode === 'compact' ? 'COMPACT' : 'FULL'));
+
     if (mode === 'compact') {
-      // doar codurile — canonul complet il cara skill-ul renda-canon-memory (references)
-      const r = (d.reflexe || []).map((x) => x.code).join('·');
-      const n = (d.norme || []).map((x) => x.id).join('·');
+      // doar codurile — canonul complet il cara skill-ul de canon memory (references)
+      const r = reflexe.map((x) => x.code).join('·');
+      const n = norme.map((x) => x.id).join('·');
       out.push('[CANON (codes) — reflexes ' + r + ' + norms ' + n + '; resolve these from the RENDA canon]');
     } else {
       // FULL = reflexe si norme INTREGI (fara taiere — userul le vrea complete)
       out.push('[CANON — reflexes & norms selected for this request]');
-      (d.reflexe || []).forEach((r) => {
+      reflexe.forEach((r) => {
         out.push('REFLEX ' + r.code + ' ' + r.axis + ' | DPI: ' + r.dpi + ' | DNI: ' + r.dni);
       });
-      (d.norme || []).forEach((n) => {
-        // v4.12.0 — activatorii de pastile + proveniența stratului pe linia normei (pills prevalează; corelezi, nu topești)
+      norme.forEach((n) => {
+        // activatorii de pastile + proveniența stratului pe linia normei (pills prevalează; corelezi, nu topești)
         const ex = [];
         if (n.strat && !['axioma', 'postulat', 'protocol', 'idee_forta'].includes(n.strat)) ex.push('strat: ' + n.strat);
         if (n.lang) ex.push('lang: ' + n.lang);
@@ -2853,7 +2864,7 @@
         out.push('NORMA [' + n.id + '] ' + n.name + ' — ' + n.formula + ' (' + (n.why === 'zi' ? 'daily rotation' : 'lexical match') + sufix + ')');
       });
     }
-    out.push(SEP);
+    out.push(ENV_END);
     return out.join('\n');
   }
 
@@ -2934,8 +2945,12 @@
       }
       moveCursorToEnd(ed);
       let injected = false;
-      try { injected = document.execCommand('insertText', false, buildCanonBlock(d, getCanonMode())); } catch (_) {}
-      setCanonLine(hud2, injected ? canonSummary(d) + (booted ? ' +BOOT' : '') : 'canon: injectie esuata — trimis LIBER', !!injected);
+      const block = buildCanonBlock(d, getCanonMode());
+      if (block) { try { injected = document.execCommand('insertText', false, block); } catch (_) {} }
+      setCanonLine(hud2,
+        !block ? 'canon: selectie goala — trimis LIBER (fara envelope)'
+               : (injected ? canonSummary(d) + (booted ? ' +BOOT' : '') : 'canon: injectie esuata — trimis LIBER'),
+        !!injected);
       proceedSend(ed);
     }
     function handleAttempt(e) {
