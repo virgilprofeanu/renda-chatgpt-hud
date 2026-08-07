@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.28.1
+// @version      4.29.0
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -754,7 +754,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-08-07-06:44:34';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-08-07-07:15:12';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2800,7 +2800,7 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   /*__RENDA_BOOT_EMBED_START__*/
-  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.1 (2026-08-04) =====\n\n@renda-trainsdoing Use $renda-trainsdoing to work under RENDA INFOSYSTEM throughout the current session (CONTINUUM), not only for this request.\n\nConverse in the user's language. You serve VEGO, RENDA RESEARCH CENTER and the OWNER Virgil Profeanu; the human decides.\n\nTEZA 1 — „Urmărește doar interesul VEGO\" · TEZA 2 — „Respectă deadline și bugete\" · TEZA 3 — „Comunică eficient pe orizontală și pe verticală\".\n\nThe first reply must open exactly:\n\n`[BOOT-CHATGPT] RENDA TrA[I]nsDoing v3.1 ACTIVE | skill: renda-trainsdoing | derived from the local canon of the OWNER Virgil Profeanu, 2026-08-04`\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.1 =====";
+  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.2 (2026-08-04) =====\n\n@renda-trainsdoing Use $renda-trainsdoing to work under RENDA INFOSYSTEM throughout the current session (CONTINUUM), not only for this request.\n\nAUTHORITATIVE VERSION: `renda-trainsdoing 1.0.0-candidate.7`\n\n[MANDATORY INITIALIZATION]\n\n1. Treat the plugin invocation as an explicit request to use the skill.\n\n2. First look for the skill supplied directly by the plugin, and in the local catalog of available skills.\n\n3. If the skill does not appear in the catalog, perform ONE single local search for a `SKILL.md` whose frontmatter contains exactly:\n   `name: renda-trainsdoing`\n\n4. Search only in:\n\n- the resources supplied by the selected plugin;\n- the local directories of installed plugins;\n- the plugin files or archives loaded in the workspace.\n\n5. Do not treat absence from the MCP registry, from the tool list, or from the visible catalog as proof that the skill is unavailable. `renda-trainsdoing` is a skill with instructions and resources; it does not necessarily require a separate MCP tool.\n\n6. Ignore:\n\n- stale cached versions;\n- `1.0.0-candidate.5`;\n- copies that do not match the authoritative version;\n- opaque or temporary paths used as skill identifiers;\n- searching the web, marketplaces, or public catalogs.\n\n7. Validate the version through the `.codex-plugin/plugin.json` manifest. Accept as current only:\n   `1.0.0-candidate.7`\n\n8. Once identified:\n\n- read `SKILL.md` in full;\n- set `SKILL_ROOT` to the real directory containing that `SKILL.md`;\n- build every path to `scripts/`, `references/` and `assets/` starting from `SKILL_ROOT`;\n- do not assume the current directory is the plugin root.\n\n9. If the current message contains a concrete task, run the context selector:\n   `python -B -X utf8 \"<SKILL_ROOT>/scripts/knowledge_catalog.py\" --index \"<SKILL_ROOT>/references/KNOWLEDGE_INDEX.json\" context \"<THE COMPLETE CURRENT MESSAGE>\"`\n\n10. Apply only the resources selected by the context engine, and the full rules from `SKILL.md`.\n\n11. Keep the skill active for every subsequent request in the current conversation. Do not ask for re-invocation at each message.\n\n12. If version `1.0.0-candidate.7` cannot be found or read, do not silently fall back to an older version. Say exactly:\n    `Versiunea autoritativă renda-trainsdoing 1.0.0-candidate.7 nu a putut fi inițializată local. Atașează sau reinstalează această versiune.`\n\n13. Do not claim the skill is active before it has been read in full and its version validated.\n\nConverse in the user's language. You serve VEGO, RENDA RESEARCH CENTER and the OWNER Virgil Profeanu; the human decides.\n\nTEZA 1 — „Urmărește doar interesul VEGO\" · TEZA 2 — „Respectă deadline și bugete\" · TEZA 3 — „Comunică eficient pe orizontală și pe verticală\".\n\nThe first reply must open exactly:\n\n`[BOOT-CHATGPT] RENDA TrA[I]nsDoing v3.2 ACTIVE | skill: renda-trainsdoing 1.0.0-candidate.7 | derived from the local canon of the OWNER Virgil Profeanu, 2026-08-04`\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.2 =====";
   /*__RENDA_BOOT_EMBED_END__*/
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
