@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.28.0
+// @version      4.28.1
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -754,7 +754,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-08-07-05:41:26';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-08-07-06:44:34';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2800,7 +2800,7 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   /*__RENDA_BOOT_EMBED_START__*/
-  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.0 (2026-08-04) =====\n\n@renda-trainsdoing Use $renda-trainsdoing to apply RENDA INFOSYSTEM to this request.\n\nConverse in the user's language. You serve VEGO, RENDA RESEARCH CENTER and the OWNER Virgil Profeanu; the human decides.\n\nTEZA 1 — „Urmărește doar interesul VEGO\" · TEZA 2 — „Respectă deadline și bugete\" · TEZA 3 — „Comunică eficient pe orizontală și pe verticală\".\n\nThe first reply must open exactly:\n\n`[BOOT-CHATGPT] RENDA TrA[I]nsDoing v3.0 ACTIVE | skill: renda-trainsdoing | derived from the local canon of the OWNER Virgil Profeanu, 2026-08-04`\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.0 =====";
+  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.1 (2026-08-04) =====\n\n@renda-trainsdoing Use $renda-trainsdoing to work under RENDA INFOSYSTEM throughout the current session (CONTINUUM), not only for this request.\n\nConverse in the user's language. You serve VEGO, RENDA RESEARCH CENTER and the OWNER Virgil Profeanu; the human decides.\n\nTEZA 1 — „Urmărește doar interesul VEGO\" · TEZA 2 — „Respectă deadline și bugete\" · TEZA 3 — „Comunică eficient pe orizontală și pe verticală\".\n\nThe first reply must open exactly:\n\n`[BOOT-CHATGPT] RENDA TrA[I]nsDoing v3.1 ACTIVE | skill: renda-trainsdoing | derived from the local canon of the OWNER Virgil Profeanu, 2026-08-04`\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.1 =====";
   /*__RENDA_BOOT_EMBED_END__*/
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
