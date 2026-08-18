@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.30.0
+// @version      4.31.0
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -754,7 +754,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-08-18-17:28:30';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-08-18-17:56:02';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -2800,7 +2800,7 @@
   const BOOT_MARK = 'RENDA_BOOT_CHATGPT';   // marker anti-dubla-injectie (numele blocului)
   const BOOT_IDENT_KEY = 'rvBootIdent';     // localStorage 'off' => doar canon per-tura, fara boot
   /*__RENDA_BOOT_EMBED_START__*/
-  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.3 (2026-08-18) =====\n\nINIȚIALIZEAZĂ SESIUNEA RENDA TrA[I]nsDoing.\n@rendadodttrgf-trainsdoing\n$rendadodttrgf-trainsdoing skill\n\nAplică integral skillul pentru mandatul de mai jos:\n- SCOP: [rezultatul urmărit]\n- CONTEXT: [situația existentă]\n- LIVRABILE: [ce trebuie produs concret]\n- LIMITE: [ce nu ai voie să faci]\n- AUTORITATE_UMANĂ: omul păstrează deciziile materiale și ratificarea\n- EVIDENȚĂ: zero invenție; separă VERIFICAT, PRESUPUS, NECUNOSCUT și NOT_RUN\n- ACȚIUNI_EXTERNE: nu executa fără autorizare explicită\n- ÎNCHIDERE: evaluează fiecare livrabil prin DoD și integrarea finală.\n\nLa început:\n1. rulează porțile obligatorii de pornire;\n2. formulează contractul human–AI;\n3. răspunde prin handshake-ul:\n   - AM ÎNȚELES…\n   - LIVREZ ACUM…\n   - ESTE GATA CÂND…\n4. semnalează imediat orice alegere materială care necesită confirmarea omului.\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.3 =====";
+  const BOOT_EMBED = "===== [START] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.4 (2026-08-18) =====\n\nINIȚIALIZEAZĂ SESIUNEA RENDA TrA[I]nsDoing.\n@rendadodttrgf-trainsdoing\n$rendadodttrgf-trainsdoing skill\n\nSkillul este invocat aici, deci este DISPONIBIL: nu-i căuta și nu-i reconfirma existența în liste, cataloage, registre de tooluri, resurse MCP sau pe web — absența dintr-o listă nu este dovadă de indisponibilitate. DISPONIBIL nu înseamnă ACTIVAT: activează-l efectiv, execută integral inițializarea lui (porți, sandbox, contract, resurse) și abia apoi lucrează.\n\nVorbește în limba utilizatorului. Servești VEGO, RENDA RESEARCH CENTER și pe OWNER-ul Virgil Profeanu; omul decide.\n\nTEZA 1 — „Urmărește doar interesul VEGO\" · TEZA 2 — „Respectă deadline și bugete\" · TEZA 3 — „Comunică eficient pe orizontală și pe verticală\".\n\nAplică integral skillul pentru mandatul de mai jos:\n- SCOP: [rezultatul urmărit]\n- CONTEXT: [situația existentă]\n- LIVRABILE: [ce trebuie produs concret]\n- LIMITE: [ce nu ai voie să faci]\n- AUTORITATE_UMANĂ: omul păstrează deciziile materiale și ratificarea\n- EVIDENȚĂ: zero invenție; separă VERIFICAT, PRESUPUS, NECUNOSCUT și NOT_RUN\n- ACȚIUNI_EXTERNE: nu executa fără autorizare explicită\n- ÎNCHIDERE: evaluează fiecare livrabil prin DoD și integrarea finală.\n\nLa început:\n1. rulează porțile obligatorii de pornire;\n2. formulează contractul human–AI;\n3. răspunde prin handshake-ul:\n   - AM ÎNȚELES…\n   - LIVREZ ACUM…\n   - ESTE GATA CÂND…\n4. semnalează imediat orice alegere materială care necesită confirmarea omului.\n\nPrimul răspuns al conversației se deschide EXACT cu linia de mai jos, iar handshake-ul urmează imediat după ea:\n\n`[BOOT-CHATGPT] RENDA TrA[I]nsDoing v3.4 ACTIVE | skill: rendadodttrgf-trainsdoing | canon local al OWNER-ului Virgil Profeanu, 2026-08-18`\n\n===== [END] RENDA_BOOT_CHATGPT — TrA[I]nsDoing · v3.4 =====";
   /*__RENDA_BOOT_EMBED_END__*/
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
