@@ -65,7 +65,8 @@ decât versiunea care rulează, se reîncarcă singur — în fiecare browser ca
 picată = nu se scrie nimic. Jurnal: `update.log`. Oprire: `opreste-auto-update.bat`.
 
 Instalările făcute înainte de v4.36.0 nu au task-ul: se rulează o dată din nou `remote_install.bat`, apoi
-un singur Reload pe cardul extensiei (sau repornirea browserului). Versiunea veche, aflată încă în memoria
+un singur Reload pe cardul extensiei, în fiecare browser (sau repornirea calculatorului; închiderea ferestrei
+nu ajunge mereu, fiindcă Chrome și Edge pot rămâne pornite în fundal). Versiunea veche, aflată încă în memoria
 browserului, nu are codul de reîncărcare proprie; e ultimul gest manual.
 După o actualizare, tab-urile ChatGPT deja deschise cer un F5.
 
