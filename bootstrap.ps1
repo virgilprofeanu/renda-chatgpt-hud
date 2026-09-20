@@ -8,7 +8,9 @@
 #      in Chrome SI in Edge (ambele incarca acelasi folder) - omul nu mai apasa nimic
 #   4. pune calea in clipboard si deschide chrome://extensions
 # Raman cei 2 pasi din browser, O SINGURA DATA (Developer mode / Load unpacked / Ctrl+V).
-# Daca extensia era deja incarcata din acest folder: nu mai e nimic de facut.
+# Daca extensia era deja incarcata din acest folder: un singur Reload pe cardul ei (sau
+# repornirea browserului), O SINGURA DATA - versiunea veche din memorie nu are codul de
+# reincarcare proprie; de la 4.36.0 in sus extensia se reincarca singura.
 # Oprirea auto-update-ului: opreste-auto-update.bat din folderul extensiei.
 # Fisier ASCII-only (PS 5.1 fara BOM = ANSI).
 # ============================================================================
@@ -88,7 +90,9 @@ Write-Host "MAI AI DE FACUT IN CHROME (o singura data):" -ForegroundColor Cyan
 Write-Host "  1. Porneste 'Developer mode' (dreapta-sus)"
 Write-Host "  2. 'Load unpacked' -> Ctrl+V in bara de cale -> Enter -> Select Folder"
 Write-Host "  (gata - HUD-ul merge fara alte setari; la fel in Edge: edge://extensions)"
-Write-Host "  Daca extensia era DEJA incarcata din acest folder, sari peste cei 2 pasi."
+Write-Host "  Daca extensia era DEJA incarcata din acest folder: sari peste cei 2 pasi si apasa"
+Write-Host "  O SINGURA DATA Reload pe cardul ei (sau reporneste browserul). E ultima data:"
+Write-Host "  de la versiunea 4.36.0 in sus extensia se reincarca singura."
 Write-Host ""
 Write-Host "Apoi deschide https://chatgpt.com - banda HUD apare sus."
 if ($taskOk) {
