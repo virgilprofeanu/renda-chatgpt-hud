@@ -178,7 +178,7 @@ let lastGithub = 0;
 let infoNoUpdate = false;
 async function checkGithub() {
   if (!chrome.userScripts) {
-    if (!infoNoUpdate) { infoNoUpdate = true; log('auto-update de pe GitHub inactiv (userScripts indisponibil) — HUD-ul ruleaza din pachet; actualizarea se face reinstalind pachetul.'); }
+    if (!infoNoUpdate) { infoNoUpdate = true; log('auto-update de pe GitHub inactiv (userScripts indisponibil) — HUD-ul ruleaza din pachet; actualizarea vine prin task-ul de pe disc (update.ps1 + version.txt) sau reinstalind pachetul.'); }
     return;
   }
   if (Date.now() - lastGithub < GITHUB_EVERY_MS) return;
@@ -201,8 +201,31 @@ async function checkGithub() {
   } catch (e) { log('self-update: ' + (e && e.message)); }
 }
 
+// v4.36.0 — AUTO-UPDATE PE DISC (calea fara comutator, Chrome SI Edge): task-ul Windows
+// "RENDA HUD AutoUpdate" ruleaza update.ps1 la 10 minute; acela aduce pachetul nou din GitHub
+// in folderul extensiei si scrie version.txt ULTIMUL. La extensiile unpacked,
+// chrome-extension://<id>/version.txt se citeste DE PE DISC la fiecare cerere, deci aici vedem
+// versiunea de pe disc fara repornirea browserului. Daca e STRICT mai noua decat cea care
+// ruleaza, ne reincarcam singuri — echivalentul butonului Reload de pe cardul extensiei.
+// Anti-bucla: o singura incercare de reload per versiune (rv_disk_reload in storage). Fara
+// version.txt (instalari vechi) sau la orice eroare: nu se intampla nimic.
+async function checkDisk() {
+  try {
+    const res = await fetch(chrome.runtime.getURL('version.txt'), { cache: 'no-store' });
+    if (!res.ok) return;
+    const onDisk = (await res.text()).trim();
+    const running = chrome.runtime.getManifest().version;
+    if (!/^\d+(\.\d+){1,3}$/.test(onDisk) || !isNewer(onDisk, running)) return;
+    const st = await chrome.storage.local.get('rv_disk_reload');
+    if (st.rv_disk_reload === onDisk) return;
+    await chrome.storage.local.set({ rv_disk_reload: onDisk });
+    log('pe disc e v' + onDisk + ', ruleaza v' + running + ' — ma reincarc singur');
+    chrome.runtime.reload();
+  } catch (_) {}
+}
+
 function ensureAlarm() { chrome.alarms.get(ALARM, (a) => { if (!a) chrome.alarms.create(ALARM, { periodInMinutes: TICK_MIN }); }); }
-async function tick() { const ok = await ensureRegistered(); if (ok) checkGithub(); }
+async function tick() { checkDisk(); const ok = await ensureRegistered(); if (ok) checkGithub(); }
 
 chrome.runtime.onInstalled.addListener(() => {
   settled = false; seedCache = null;   // pachet nou pe disc → re-evalueaza baza vs storage

@@ -54,6 +54,19 @@ site-urile pentru care extensia are `host_permissions` în manifest. De aceea
 `host_permissions` — fără ele, totul pare că merge (înregistrare OK, zero erori)
 dar scriptul nu rulează niciodată în pagină.
 
+## Auto-update pe disc (fără comutator, Chrome și Edge)
+
+Pentru cine nu pornește „Allow user scripts": instalatorul (`remote_install.bat`) înregistrează task-ul Windows
+**„RENDA HUD AutoUpdate"**, care rulează `update.ps1` la 10 minute, fără fereastră. Scriptul citește `version.txt`
+din GitHub; dacă e strict mai nou, descarcă tot pachetul într-un folder temporar, îl verifică (versiuni aliniate,
+puntea de extensie, manifest valid, plasa `content_scripts`) și abia apoi îl copiază peste folderul extensiei,
+scriind `version.txt` ultimul. `background.js` citește `version.txt` de pe disc la fiecare minut și, dacă e mai nou
+decât versiunea care rulează, se reîncarcă singur — în fiecare browser care încarcă acel folder. Orice verificare
+picată = nu se scrie nimic. Jurnal: `update.log`. Oprire: `opreste-auto-update.bat`.
+
+Instalările făcute înainte de v4.36.0 nu au task-ul: se rulează o dată din nou `remote_install.bat`.
+După o actualizare, tab-urile ChatGPT deja deschise cer un F5.
+
 ## De ce HIBRID: `content_scripts` CA BAZĂ + `chrome.userScripts` ca strat de update?
 
 Lecția din 2026-07-24: o versiune doar-pe-`userScripts` **nu pornea deloc** fără
