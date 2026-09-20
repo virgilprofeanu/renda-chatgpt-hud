@@ -26,9 +26,9 @@ Dublu-click pe **`remote_install.bat`** → descarcă extensia în `D:\apps\rend
 1. Pornește **Developer mode** (dreapta-sus)
 2. **Load unpacked** → Ctrl+V în bara de cale → Enter → *Select Folder*
 3. Gata — HUD-ul pornește **fără nicio altă setare** (baza = `content_scripts`).
-   *Opțional*, pe Chrome/Edge 138+: activează **„Allow user scripts"** pe cardul
-   extensiei ca să primești și **auto-update din GitHub** (fără el HUD-ul merge
-   oricum, dar rămâi pe versiunea din pachet până reinstalezi)
+   Instalatorul armează și **auto-update-ul pe disc**: un task Windows la 10 minute aduce
+   versiunile noi, iar extensia se reîncarcă singură, în Chrome și în Edge. *Opțional*, pe
+   Chrome/Edge 138+, **„Allow user scripts"** pe cardul extensiei adaugă și auto-update-ul din browser.
 
 Apoi deschide chatgpt.com — banda HUD apare sus. Cine folosea userscript-ul în
 Tampermonkey trebuie să-l **dezactiveze** (altfel rulează ambele).
