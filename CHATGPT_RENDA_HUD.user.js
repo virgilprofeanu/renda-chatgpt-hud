@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.36.2
+// @version      4.36.3
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -544,6 +544,8 @@
   const HUD_ID = 'renda-vigilia-chatgpt-hud';
   const STYLE_ID = 'renda-vigilia-chatgpt-style';
   const ROOT_CLASS = 'renda-chatgpt-root';
+  const VIEWPORT_CLASS = 'renda-chatgpt-viewport-shell';
+  const MODE_SWITCH_CLASS = 'renda-chatgpt-mode-switch';
   const STORAGE_KEY = 'rendaVigiliaHudCollapsed';
   const PP_KEY = 'rendaVigiliaPerpetualPrompt';
   const PANEL_ID = 'renda-vigilia-pp-panel';
@@ -754,7 +756,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-09-21-00:05:20';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-09-25-12:37:37';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -829,14 +831,36 @@
       transition: margin-top .22s ease, height .22s ease, max-height .22s ease;
     }
 
+    /* v4.36.3-local: shell-ul ChatGPT isi schimba periodic utilitarul de viewport
+       (h-svh / h-dvh / h-screen / valori arbitrare 100dvh). Toate variantele cunoscute,
+       plus shell-ul detectat geometric de JS, trebuie sa mosteneasca inaltimea REALA a
+       root-ului comprimat sub HUD; altfel composer-ul depaseste ecranul cu exact 38/78px. */
     /* v3.2.2: shell-ul ChatGPT se dimensioneaza cu h-svh/100dvh (inaltimea VIEWPORTULUI) desi
        root-ul e comprimat cu inaltimea HUD => composer-ul cadea sub ecran pe /c/...
        Normalizare INGUSTA: doar elementele h-svh mostenesc inaltimea reala (100% din root).
        NU plafonam toti copiii root-ului (lectia v3.1.2: regula lata atingea sidebar-ul si
        strica masuratoarea virtualizatorului listei de chaturi). */
-    :root.renda-vigilia-theme .${ROOT_CLASS} [class*="h-svh"] {
+    :root.renda-vigilia-theme .${ROOT_CLASS} :is(
+      [class*="h-svh"],
+      [class*="h-dvh"],
+      [class*="h-lvh"],
+      [class~="h-screen"],
+      [class*="h-[100dvh]"],
+      [class*="h-[100svh]"],
+      .${VIEWPORT_CLASS}
+    ) {
       height: 100% !important;
       max-height: 100% !important;
+      min-height: 0 !important;
+    }
+
+    /* Interfata ChatGPT 2026 pozitioneaza selectorul Chat / Work fata de viewport,
+       independent de root-ul aplicatiei. Cand se suprapune cu HUD-ul, JS marcheaza doar
+       capsula celor doua butoane, iar proprietatea translate o muta fara sa-i suprascrie
+       transform-ul nativ de centrare. */
+    :root.renda-vigilia-theme .${MODE_SWITCH_CLASS} {
+      translate: 0 var(--rv-hud-height) !important;
+      transition: translate .22s ease;
     }
 
     :root.renda-vigilia-theme.dark [class*='bg-token-sidebar-surface-primary'] {
@@ -1411,6 +1435,64 @@
     return root;
   }
 
+  // ChatGPT isi redenumeste des clasele de viewport. Pe langa variantele CSS cunoscute,
+  // marcheaza strict ancestorii lui <main>/composer care au inaltime apropiata de viewport.
+  // Marcajul este ingust: nu atinge listele virtualizate din sidebar sau panourile HUD.
+  function markViewportShells(root) {
+    if (!(root instanceof HTMLElement)) return;
+    const anchors = [document.querySelector('main'), document.querySelector('#prompt-textarea')]
+      .filter((node) => node instanceof HTMLElement && root.contains(node));
+    const viewportHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    const seen = new Set();
+
+    for (const anchor of anchors) {
+      let node = anchor;
+      while (node && node !== root && node instanceof HTMLElement) {
+        if (!seen.has(node)) {
+          seen.add(node);
+          const cls = typeof node.className === 'string' ? node.className : '';
+          const rect = node.getBoundingClientRect();
+          const namedViewport = /(?:^|\s)h-(?:s|d|l)vh(?:\s|$)|(?:^|\s)h-screen(?:\s|$)|h-\[100(?:s|d|l)?vh\]/.test(cls);
+          const geometricViewport = viewportHeight > 0
+            && rect.height >= viewportHeight - 4
+            && rect.height <= viewportHeight + 96;
+          if (namedViewport || geometricViewport) node.classList.add(VIEWPORT_CLASS);
+        }
+        node = node.parentElement;
+      }
+    }
+  }
+
+  // Selectorul nativ Chat / Work este acum un element viewport-fixed. Il identificam dupa
+  // perechea de butoane si marcam numai cel mai apropiat container comun, daca este o capsula
+  // mica aflata in zona acoperita de HUD. Linkul "Chat" din HUD nu este buton si este exclus.
+  function markNativeModeSwitch() {
+    const buttons = [...document.querySelectorAll('button')].filter((button) =>
+      button instanceof HTMLElement && !button.closest('#' + HUD_ID)
+    );
+    const label = (button) => String(button.getAttribute('aria-label') || button.textContent || '')
+      .trim().toLowerCase();
+    const chat = buttons.find((button) => label(button) === 'chat');
+    const work = buttons.find((button) => label(button) === 'work');
+    if (!chat || !work) return;
+
+    let wrapper = chat.parentElement;
+    while (wrapper && wrapper !== document.body && !wrapper.contains(work)) wrapper = wrapper.parentElement;
+    if (!(wrapper instanceof HTMLElement) || wrapper === document.body) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const hudHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rv-hud-height')) || 0;
+    if (rect.width > 0 && rect.width <= 640 && rect.height > 0 && rect.height <= 120 && rect.top < hudHeight + 8) {
+      wrapper.classList.add(MODE_SWITCH_CLASS);
+    }
+  }
+
+  function syncResponsiveLayout() {
+    const root = findAndMarkRoot();
+    markViewportShells(root);
+    markNativeModeSwitch();
+  }
+
   function createHud() {
     const existing = document.getElementById(HUD_ID);
     if (existing) return existing;
@@ -1474,6 +1556,7 @@
       button.setAttribute('aria-label', button.title);
     }
     try { localStorage.setItem(STORAGE_KEY, String(collapsed)); } catch (_) {}
+    requestAnimationFrame(syncResponsiveLayout);
   }
 
   function updateState(hud) {
@@ -3193,6 +3276,7 @@
     let collapsed = false;
     try { collapsed = localStorage.getItem(STORAGE_KEY) === 'true'; } catch (_) {}
     setCollapsed(hud, collapsed);
+    syncResponsiveLayout();
 
     hud.querySelector('.rv-collapse')?.addEventListener('click', () => {
       const next = document.documentElement.dataset.rvCollapsed !== 'true';
@@ -3200,7 +3284,11 @@
     });
 
     updateState(hud);
-    setInterval(() => updateState(hud), 1000);
+    setInterval(() => {
+      updateState(hud);
+      syncResponsiveLayout();
+    }, 1000);
+    addEventListener('resize', syncResponsiveLayout, {passive: true});
     addEventListener('online', () => updateState(hud));
     addEventListener('offline', () => updateState(hud));
     addEventListener('popstate', () => updateState(hud));
@@ -3278,7 +3366,7 @@
     wireCanonIntercept(hud);
 
     const bodyObserver = new MutationObserver(() => {
-      findAndMarkRoot();
+      syncResponsiveLayout();
       updateState(hud);
     });
     bodyObserver.observe(document.body, {childList: true});
@@ -3353,4 +3441,3 @@
     mount();
   }
 })();
-
