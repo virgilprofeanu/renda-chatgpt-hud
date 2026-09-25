@@ -1,7 +1,27 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.36.3
+// @version      4.36.4
+// PATCH 2026-09-25 (audit interfata NOUA ChatGPT "Chat | Work", verificat pe DOM-ul logat): (1) composer-ul
+// a pierdut #prompt-textarea — e un ProseMirror FARA id (div[contenteditable][role=textbox][aria-label="Ask
+// ChatGPT"][data-composer-markdown]) intr-un <form>; pe pagina fara login e <textarea id=mobile-composer-prompt>
+// => findComposer pe straturi (id vechi -> textbox VIZIBIL -> textarea) + composerText/cursor si pe textarea.
+// (2) butonul Send = <button type=submit aria-label="Send"> in formularul composer-ului (fara data-testid=
+// send-button, fara #composer-submit-button; apare doar cu text) => findSendButton/isSendControl: canonul se
+// injecteaza si la CLICK pe Send, nu doar la Enter. (3) mesajele NU mai au data-message-author-role (turele au
+// data-turn-key / data-content-search-turn-key, raspunsul h4[data-conversation-role]) => prima tura = fara markeri
+// de tura SI URL fara /c/<id> (altfel BOOT-ul intra in FIECARE mesaj); /g/<x>/c/<id> nu mai e "chat nou" (prompt
+// perpetuu). (4) tema dark = html[data-theme="dark"] (clasa .dark a disparut) + tokenii noi --color-surface*.
+// (5) shell-ul #root (fara #__next): --app-shell-root-banner-height = inaltimea benzii => header-ul fix (Show
+// sidebar / Temporary chat / Chat|Work) coboara NATIV sub HUD (masurat 0 -> 78px), fara dubla deplasare.
+// (6) identitatea si din scriptul #client-bootstrap (sincron), /api/auth/session ramane confirmarea.
+// (7) dupa review: composer-ul = DOAR un element vizibil, cel mai de jos (editorul "Edit message" al unui mesaj
+// vechi e tot un ProseMirror cu data-composer-markdown, dar sta deasupra firului); inserarea trece printr-un
+// singur helper (rvInsertText) si pentru BOOT/canon, cu fallback pe textarea; butonul Send e acceptat DOAR din
+// formularul composer-ului (nu din cel de editare a unui mesaj).
+// (8) dupa review: findSendButton intoarce DOAR un buton vizibil si activ (fara rezerva pe butoane dezactivate
+// sau ascunse: click() pe un <button disabled> nu emite niciun eveniment, iar bypass-ul canon ramanea agatat
+// si "manca" urmatoarea trimitere manuala); bypass-ul e armat abia la dispatch si expira singur (1,5 s).
 // v4.15.0 (2026-07-25, unificare Electron, decizie autor): acest fisier devine banda COMUNA a doua
 // gazde — Chrome (content_script, neschimbat) si HUD Electron (pages/gpt.html il ia de la
 // GET /hud_userscript si il injecteaza in webview-ul persist:gpt cu executeJavaScript; IIFE +
@@ -756,7 +776,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-09-25-12:37:37';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-09-25-15:58:49';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -858,6 +878,26 @@
        independent de root-ul aplicatiei. Cand se suprapune cu HUD-ul, JS marcheaza doar
        capsula celor doua butoane, iar proprietatea translate o muta fara sa-i suprascrie
        transform-ul nativ de centrare. */
+    /* 2026-09-25: shell-ul ChatGPT 2026-09 (#root, layout "Chat | Work") rezerva NATIV loc pentru un
+       "root banner" prin --app-shell-root-banner-height (declarata inline, 0px, pe
+       FullHeightPageSurfaceLayout): header-ul fix (Show sidebar / Temporary chat / Chat | Work)
+       isi calculeaza top-ul din ea. Ii dam inaltimea benzii => elementele fixe coboara singure
+       sub HUD (masurat: header 0 -> 78px), fara translate si fara dubla deplasare. */
+    :root.renda-vigilia-theme .${ROOT_CLASS},
+    :root.renda-vigilia-theme .${ROOT_CLASS} [style*="--app-shell-root-banner-height"],
+    :root.renda-vigilia-theme .${ROOT_CLASS} [class*="FullHeightPageSurfaceLayout"] {
+      --app-shell-root-banner-height: var(--rv-hud-height) !important;
+    }
+
+    /* 2026-09-25: tokenii de culoare NOI ai shell-ului 2026-09 (--color-surface = main, -tertiary =
+       rama/sidebar, -secondary = suprafete), doar pe tema dark; aceeasi paleta ca
+       --main-surface-* / --sidebar-surface-* de mai sus. */
+    :root.renda-vigilia-theme.dark {
+      --color-surface: #0d0f12 !important;
+      --color-surface-secondary: #15181d !important;
+      --color-surface-tertiary: #101318 !important;
+    }
+
     :root.renda-vigilia-theme .${MODE_SWITCH_CLASS} {
       translate: 0 var(--rv-hud-height) !important;
       transition: translate .22s ease;
@@ -1391,7 +1431,10 @@
     style.id = STYLE_ID;
     // v4.9.17: panourile SETT si Misiune refolosesc TOATE stilurile panoului PP fara
     // duplicare: fiecare selector "#pp-panel..." devine ":is(#pp-panel, #sett, #mis)..."
-    style.textContent = css.split('#' + PANEL_ID).join(':is(#' + PANEL_ID + ', #' + SETT_PANEL_ID + ', #' + MIS_PANEL_ID + ')');
+    style.textContent = css
+      .split('#' + PANEL_ID).join(':is(#' + PANEL_ID + ', #' + SETT_PANEL_ID + ', #' + MIS_PANEL_ID + ')')
+      // 2026-09-25: tema dark = .dark pe <html> (shell-ul vechi) SAU html[data-theme="dark"] (shell-ul 2026-09)
+      .split(':root.renda-vigilia-theme.dark').join(':root.renda-vigilia-theme:is(.dark, [data-theme="dark"])');
     document.head.appendChild(style);
   }
 
@@ -1399,8 +1442,9 @@
     const candidates = [...document.body.children].filter((node) =>
       node instanceof HTMLElement && node.tagName === 'DIV' && node.id !== HUD_ID
     );
+    // 2026-09-25: shell-ul ChatGPT 2026-09 monteaza aplicatia in <div id="root"> (fara #__next)
     const preferred = candidates.find((node) =>
-      node.id === '__next' || node.id === 'app' || node.getAttribute('data-testid') === 'app-root'
+      node.id === '__next' || node.id === 'root' || node.id === 'app' || node.getAttribute('data-testid') === 'app-root'
     );
     let root = preferred || null;
     if (!root) {
@@ -1440,7 +1484,7 @@
   // Marcajul este ingust: nu atinge listele virtualizate din sidebar sau panourile HUD.
   function markViewportShells(root) {
     if (!(root instanceof HTMLElement)) return;
-    const anchors = [document.querySelector('main'), document.querySelector('#prompt-textarea')]
+    const anchors = [document.querySelector('main'), findComposer()]
       .filter((node) => node instanceof HTMLElement && root.contains(node));
     const viewportHeight = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
     const seen = new Set();
@@ -1482,6 +1526,11 @@
 
     const rect = wrapper.getBoundingClientRect();
     const hudHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rv-hud-height')) || 0;
+    // 2026-09-25: shell-ul nou onoreaza --app-shell-root-banner-height (CSS-ul HUD o seteaza la inaltimea
+    // benzii) => capsula coboara singura; translate-ul ramane DOAR pentru shell-ul vechi (altfel s-ar
+    // deplasa de doua ori: o data nativ, o data prin translate).
+    const native = parseFloat(getComputedStyle(wrapper).getPropertyValue('--app-shell-root-banner-height')) || 0;
+    if (native >= hudHeight - 1) { wrapper.classList.remove(MODE_SWITCH_CLASS); return; }
     if (rect.width > 0 && rect.width <= 640 && rect.height > 0 && rect.height <= 120 && rect.top < hudHeight + 8) {
       wrapper.classList.add(MODE_SWITCH_CLASS);
     }
@@ -1595,14 +1644,88 @@
   function getIdent() { try { return localStorage.getItem(IDENT_KEY) || ''; } catch (_) { return ''; } }
   function setIdent(t) { try { t ? localStorage.setItem(IDENT_KEY, t) : localStorage.removeItem(IDENT_KEY); } catch (_) {} }
 
-  function findComposer() { return document.getElementById('prompt-textarea'); }
+  // 2026-09-25: COMPOSER-UL NOU. ChatGPT (layout "Chat | Work", shell #root) a scos id-ul #prompt-textarea:
+  // composer-ul e un ProseMirror FARA id —
+  //   div[contenteditable="true"][role="textbox"][aria-label="Ask ChatGPT"][data-composer-markdown]
+  // — intr-un <form>; pe pagina FARA login e <textarea id="mobile-composer-prompt" name="prompt">.
+  // Cautare pe straturi: id-ul vechi (daca e vizibil) -> textbox/ProseMirror VIZIBIL -> textarea de prompt.
+  // Se sar elementele din HUD/panouri si cele invizibile (ChatGPT tine uneori un textarea de rezerva
+  // ascuns, mereu gol). execCommand('insertText') ramane calea de inserare: pe DOM-ul logat 2026-09-25
+  // textul intra ca paragrafe si React vede starea (butonul Send apare imediat).
+  const COMPOSER_SEL = [
+    '#prompt-textarea',
+    '[contenteditable="true"][role="textbox"]',
+    '.ProseMirror[contenteditable="true"]',
+    '[contenteditable="true"][data-composer-markdown]',
+    'textarea#mobile-composer-prompt',
+    'textarea[name="prompt"]',
+    'textarea[name="prompt-textarea"]'
+  ].join(', ');
+  function rvVisible(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    try {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    } catch (_) { return false; }
+  }
+  function isHudNode(el) { return !!(el && el.closest && el.closest('#' + HUD_ID + ', [id^="renda-vigilia-"]')); }
+  function isTextarea(ed) { return !!ed && (ed.tagName === 'TEXTAREA' || ed.tagName === 'INPUT'); }
+  // textul din composer: .value la textarea; .innerText (cu newline intre paragrafe) la ProseMirror
+  function composerText(ed) {
+    if (!ed) return '';
+    if (isTextarea(ed)) return ed.value || '';
+    return (typeof ed.innerText === 'string' ? ed.innerText : ed.textContent) || '';
+  }
+  function findComposer() {
+    const legacy = document.getElementById('prompt-textarea');
+    if (legacy && rvVisible(legacy)) return legacy;
+    // DOAR candidati VIZIBILI: un composer ascuns ar insemna o inserare "reusita" intr-un element gresit
+    // (mai bine "composer negasit" sincer). Cand sunt mai multi vizibili (editorul "Edit message" al unui
+    // mesaj vechi e tot un ProseMirror role=textbox cu data-composer-markdown, intr-un <form>, dar sta
+    // DEASUPRA firului), il alegem pe cel mai de JOS de pe ecran = composer-ul real (verificat 2026-09-25).
+    let best = null, bestTop = -Infinity;
+    const all = document.querySelectorAll(COMPOSER_SEL);
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i];
+      if (isHudNode(el) || !rvVisible(el)) continue;
+      const top = el.getBoundingClientRect().top;
+      if (top > bestTop) { best = el; bestTop = top; }
+    }
+    return best;
+  }
 
+  // inserare la cursor cu sincronizare React — UNICA rutina, folosita si de BOOT/canon la trimitere:
+  // execCommand('insertText') merge pe ProseMirror si pe textarea; daca esueaza pe textarea, setter-ul nativ.
+  function rvInsertText(ed, text) {
+    let ok = false;
+    try { ok = !!document.execCommand('insertText', false, text); } catch (_) { ok = false; }
+    if (!ok && isTextarea(ed)) {
+      // textarea controlat de React: setter-ul nativ + eveniment input (altfel React nu vede valoarea)
+      try {
+        const proto = ed.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+        const s = ed.selectionStart != null ? ed.selectionStart : ed.value.length;
+        const e = ed.selectionEnd != null ? ed.selectionEnd : s;
+        setter.call(ed, ed.value.slice(0, s) + text + ed.value.slice(e));
+        ed.setSelectionRange(s + text.length, s + text.length);
+        ok = true;
+      } catch (_) {}
+    }
+    if (ok) {
+      // sincronizare React/ProseMirror: un input-event explicit dupa inserare (starea butonului Send)
+      try { ed.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: text })); } catch (_) {}
+    }
+    return ok;
+  }
   function insertIntoComposer(text) {
     const ed = findComposer();
-    if (!ed) return false;
+    if (!ed) { rvlog('composer: NEGASIT (niciun element VIZIBIL pentru COMPOSER_SEL)'); return false; }
     ed.focus();
-    try { document.execCommand('insertText', false, text); } catch (_) { return false; }
-    return true;
+    const ok = rvInsertText(ed, text);
+    rvlog('composer: ' + (ok ? 'inserat' : 'inserare ESUATA') + ' in <' + ed.tagName.toLowerCase() + (ed.id ? '#' + ed.id : '') + '> (' + String(text).length + ' caractere)');
+    return ok;
   }
 
   // v4.9: panoul Agenti GPT + Skills (catalog copt din registrele RENDA prin build_agents_data.py)
@@ -2026,6 +2149,19 @@
     } catch (_) {}
     return '';
   }
+  // 2026-09-25: identitatea din scriptul #client-bootstrap al shell-ului nou (sincron, zero retea):
+  // {session:{user:{id,email,name}}} — sursa primara; /api/auth/session ramane confirmarea async
+  // (pe DOM-ul logat 2026-09-25 ambele dau email + nume; fara login /api/auth/session e doar WARNING_BANNER).
+  function bootstrapIdentity() {
+    try {
+      const el = document.getElementById('client-bootstrap');
+      if (!el) return null;
+      const j = JSON.parse(el.textContent || '');
+      const u = (j && j.session && j.session.user) || (j && j.user) || null;
+      if (u && u.email) return { email: String(u.email).toLowerCase(), name: String(u.name || '').trim() };
+    } catch (_) {}
+    return null;
+  }
   function fetchSessionEmail(cb, attempt) {
     attempt = attempt || 1;
     const finish = () => { if (cb) cb(); };
@@ -2041,6 +2177,8 @@
         rvlog('identitate: nume detectat (' + nm.length + ' caractere)');
       }
     };
+    const bi = bootstrapIdentity();
+    if (bi) { rvlog('identitate: #client-bootstrap (sincron)'); save(bi.email, bi.name); }
     try {
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
         .then((r) => { rvlog('identitate: /api/auth/session HTTP ' + r.status + ' (incercarea ' + attempt + ')'); return r.json(); })
@@ -2679,6 +2817,7 @@
   let ppInsertedHere = false;
   function isNewChatPage() {
     const p = location.pathname;
+    if (isConversationUrl()) return false;   // 2026-09-25: /g/<gizmo>/c/<id> = conversatie existenta, nu chat nou
     return p === '/' || p.startsWith('/g/');
   }
   // v3.8/3.9: deschiderea de sesiune inserata INCAPSULAT in composer, la chat nou, in engleza,
@@ -2707,7 +2846,7 @@
     if (!ident && !pp) return;                              // nimic de declarat
     const ed = findComposer();
     if (!ed) return;
-    if ((ed.textContent || '').trim() !== '') { ppInsertedHere = true; return; }
+    if (composerText(ed).trim() !== '') { ppInsertedHere = true; return; }
     if (insertIntoComposer(buildSessionOpener(ident, pp))) ppInsertedHere = true;
   }
 
@@ -2890,11 +3029,23 @@
 
   // Conversatie NOUA = zero mesaje randate la momentul trimiterii. Heuristica DOM, fara bookkeeping:
   // pe /c/<id> exista deja [data-message-author-role]; pe chat nou (inclusiv proiecte) nu exista inca.
+  // 2026-09-25: ChatGPT nou NU mai pune data-message-author-role pe mesaje; turele au data-turn-key /
+  // data-content-search-turn-key, raspunsul are h4[data-conversation-role], mesajul userului
+  // data-user-message-bubble. Conversatia existenta sta pe /c/<id> (si /g/<gizmo>/c/<id>).
+  // Prima tura = niciun marker de tura in DOM SI URL fara /c/<id>. (Fara corectie, pe shell-ul nou
+  // BOOT-ul intra in FIECARE mesaj, nu doar in primul.)
+  const TURN_SEL = '[data-message-author-role], [data-message-id], [data-turn-key], [data-content-search-turn-key], '
+    + '[data-conversation-role], [data-user-message-bubble], article[data-turn], [data-testid^="conversation-turn"]';
+  function isConversationUrl() { return /\/c\/[0-9a-f-]{8,}/i.test(location.pathname); }
   function isFirstMessageOfConversation() {
-    try { return document.querySelectorAll('[data-message-author-role]').length === 0; } catch (_) { return false; }
+    try {
+      if (isConversationUrl()) return false;
+      return !document.querySelector(TURN_SEL);
+    } catch (_) { return false; }
   }
 
   function moveCursorToStart(ed) {
+    if (isTextarea(ed)) { try { ed.setSelectionRange(0, 0); } catch (_) {} return; }
     try {
       const range = document.createRange();
       range.selectNodeContents(ed);
@@ -2961,6 +3112,7 @@
   }
 
   function moveCursorToEnd(ed) {
+    if (isTextarea(ed)) { try { const n = (ed.value || '').length; ed.setSelectionRange(n, n); } catch (_) {} return; }
     try {
       const range = document.createRange();
       range.selectNodeContents(ed);
@@ -2971,15 +3123,55 @@
     } catch (_) {}
   }
 
+  // 2026-09-25: butonul de trimitere NOU = <button type="submit" aria-label="Send"> in <form>-ul
+  // composer-ului (fara data-testid="send-button", fara #composer-submit-button); apare DOAR cand
+  // composer-ul are text. Ordinea: selectorii vechi -> submit-ul din formularul composer-ului ->
+  // aria-label EXACT Send/Trimite (nu prefix: "Send Feedback" NU e buton de trimitere). Butoanele HUD
+  // si cele invizibile/dezactivate sunt sarite.
+  const SEND_LABELS = ['send', 'send prompt', 'send message', 'trimite', 'trimite mesajul', 'trimite mesaj'];
+  const SEND_LEGACY_SEL = 'button[data-testid="send-button"], #composer-submit-button';
+  function sendLabelOk(btn) { return SEND_LABELS.indexOf((btn.getAttribute('aria-label') || '').trim().toLowerCase()) !== -1; }
+  function composerForm() { const ed = findComposer(); return ed && ed.closest ? ed.closest('form') : null; }
+  function isSendButton(btn, form) {
+    if (!(btn instanceof HTMLElement) || btn.tagName !== 'BUTTON' || isHudNode(btn)) return false;
+    if (btn.matches(SEND_LEGACY_SEL)) return true;
+    // cand composer-ul are formular, DOAR butoanele din acel formular conteaza: formularul de editare a
+    // unui mesaj vechi ("Edit message") are si el un buton Send, care NU trebuie sa declanseze canonul
+    if (form) return form.contains(btn) && (btn.type === 'submit' || sendLabelOk(btn));
+    return sendLabelOk(btn);
+  }
   function findSendButton() {
-    return document.querySelector('button[data-testid="send-button"]')
-        || document.querySelector('#composer-submit-button')
-        || document.querySelector('button[aria-label*="Send" i], button[aria-label*="Trimite" i]');
+    const form = composerForm();
+    const cands = [];
+    const push = (list) => { for (let i = 0; i < list.length; i++) cands.push(list[i]); };
+    push(document.querySelectorAll(SEND_LEGACY_SEL));
+    if (form) push(form.querySelectorAll('button[type="submit"], button[aria-label]'));
+    push(document.querySelectorAll('button[aria-label]'));
+    // DOAR un buton vizibil si activ: pe unul dezactivat click() nu emite nimic (bypass-ul ar ramane agatat);
+    // fara buton utilizabil, proceedSend trece pe Enter sintetic, iar watchdog-ul curata bypass-ul.
+    const usable = (b) => isSendButton(b, form) && !b.disabled && b.getAttribute('aria-disabled') !== 'true' && rvVisible(b);
+    return cands.find(usable) || null;
+  }
+  function isSendControl(t) {
+    const btn = t && t.closest ? t.closest('button') : null;
+    return !!btn && isSendButton(btn, composerForm());
   }
 
   let canonBusy = false;    // injectia e in curs (asteptam serverul)
   let canonBypass = false;  // urmatoarea trimitere trece NEinterceptata (re-dispatch programatic / fail-open)
   let canonBusyWatchdog = 0;
+  // (dupa review 2026-09-25) bypass-ul se armeaza abia la dispatch si EXPIRA singur daca trimiterea programatica
+  // nu ajunge la interceptor (buton indisponibil, eveniment neemis) — altfel ramanea agatat si urmatoarea
+  // trimitere MANUALA trecea fara canon.
+  let canonBypassWatchdog = 0;
+  function armCanonBypass() {
+    canonBypass = true;
+    clearTimeout(canonBypassWatchdog);
+    canonBypassWatchdog = setTimeout(() => {
+      if (canonBypass) { canonBypass = false; rvlog('canon: bypass expirat — trimiterea programatica nu a fost interceptata (buton indisponibil?)'); }
+    }, 1500);
+  }
+  function consumeCanonBypass() { canonBypass = false; clearTimeout(canonBypassWatchdog); }
   // v3.3.1: PREFETCH-ON-INPUT — selectia se ia DIN TIMP (cat userul tasteaza), ca la Enter sa fie
   // cache-hit SINCRON (fara gaura asincrona in care tab-ul de fundal throttle-uieste callback-ul GM).
   const canonCache = {key: '', data: null, ts: 0};
@@ -2990,7 +3182,7 @@
     if (!getCanonOn()) return;
     const ed = findComposer();
     if (!ed) return;
-    const text = (ed.textContent || '').trim();
+    const text = composerText(ed).trim();
     if (!text || text.includes(CANON_MARK)) return;
     const k = cacheKey(text);
     if (canonCache.key === k && canonCache.data && Date.now() - canonCache.ts < 20000) return;
@@ -3001,22 +3193,22 @@
 
   function wireCanonIntercept(hud) {
     function proceedSend(ed) {
-      canonBypass = true;
       // sincronizarea ProseMirror/React: input-event + un tick INAINTE de click pe send —
       // click-ul in acelasi tick cu execCommand risca sa trimita starea VECHE (cursa reala, prinsa la test)
       try { ed.dispatchEvent(new InputEvent('input', {bubbles: true})); } catch (_) {}
       setTimeout(() => {
-        const btn = findSendButton();
+        const btn = findSendButton();   // doar vizibil si activ; altfel Enter sintetic
+        armCanonBypass();               // armat abia acum, cu expirare automata (vezi armCanonBypass)
         if (btn) { btn.click(); return; }
         try {
           ed.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}));
-        } catch (_) { canonBypass = false; }
+        } catch (_) { consumeCanonBypass(); }
       }, 140);
     }
     function injectAndSend(hud2, d, expectText) {
       const ed = findComposer();                           // RE-gaseste composer-ul (SPA-ul il poate inlocui)
       if (!ed) { setCanonLine(hud2, 'canon: composer disparut — netrimis', false); return; }
-      const now = (ed.textContent || '').trim();
+      const now = composerText(ed).trim();
       if (!now || now.includes(CANON_MARK)) { setCanonLine(hud2, 'canon: stare schimbata — netrimis', false); return; }
       if (expectText && now !== expectText) { setCanonLine(hud2, 'canon: text schimbat intre timp — reia Enter', false); return; }
       ed.focus();
@@ -3024,12 +3216,12 @@
       let booted = false;
       if (getBootIdentOn() && isFirstMessageOfConversation() && !now.includes(BOOT_MARK)) {
         moveCursorToStart(ed);
-        try { booted = document.execCommand('insertText', false, BOOT_EMBED + '\n\n'); } catch (_) {}
+        booted = rvInsertText(ed, BOOT_EMBED + '\n\n');
       }
       moveCursorToEnd(ed);
       let injected = false;
       const block = buildCanonBlock(d, getCanonMode());
-      if (block) { try { injected = document.execCommand('insertText', false, block); } catch (_) {} }
+      if (block) injected = rvInsertText(ed, block);
       setCanonLine(hud2,
         !block ? 'canon: selectie goala — trimis LIBER (fara envelope)'
                : (injected ? canonSummary(d) + (booted ? ' +BOOT' : '') : 'canon: injectie esuata — trimis LIBER'),
@@ -3037,7 +3229,7 @@
       proceedSend(ed);
     }
     function handleAttempt(e) {
-      if (canonBypass) { canonBypass = false; return; }   // trimiterea noastra programatica / fail-open
+      if (canonBypass) { consumeCanonBypass(); return; }   // trimiterea noastra programatica / fail-open
       // v4.15.0 — Electron HUD: apelul AUTOMAT (renda_gpt.py -> GPTI din pages/gpt.html) seteaza
       // window.__rvAutoBypass in webview inainte de send: canonul ramane DOAR pe trimiterea MANUALA
       // (decizie Virgil 2026-07-25; comutabil la "canon si pe automat" scotand flagul din gpt.html).
@@ -3046,7 +3238,7 @@
       if (!getCanonOn() || canonBusy) return;
       const ed = findComposer();
       if (!ed) return;
-      const text = (ed.textContent || '').trim();
+      const text = composerText(ed).trim();
       if (!text) return;
       if (text.includes(CANON_MARK)) return;               // deja injectat in acest mesaj
       e.preventDefault();
@@ -3086,8 +3278,7 @@
     document.addEventListener('click', (e) => {
       const t = e.target;
       if (!t || !t.closest) return;
-      const btn = t.closest('button[data-testid="send-button"], #composer-submit-button');
-      if (!btn) return;
+      if (!isSendControl(t)) return;   // 2026-09-25: si butonul nou (type=submit in formularul composer-ului)
       handleAttempt(e);
     }, true);
   }
