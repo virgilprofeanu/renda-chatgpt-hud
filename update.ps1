@@ -52,7 +52,8 @@ try {
   # --- 2. descarcare in folder temporar ----------------------------------------
   $required = @('CHATGPT_RENDA_HUD.user.js', 'manifest.json', 'background.js')
   $optional = @('icon.png', 'icon128.png', 'README.md', 'bootstrap.ps1', 'remote_install.bat',
-                'sterge-task-vechi.bat', 'opreste-auto-update.bat', 'update.ps1')
+                'sterge-task-vechi.bat', 'opreste-auto-update.bat', 'update.ps1',
+                'install-mac.sh', 'update-mac.sh', 'opreste-auto-update-mac.sh')
   $stage = Join-Path $env:TEMP ('renda_hud_stage_' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force $stage | Out-Null
   foreach ($f in $required) {

@@ -15,6 +15,9 @@ PowerShell, cross-platform.
 | `bootstrap.ps1` + `remote_install.bat` | Instalarea „de la zero", dintr-un singur fișier: descarcă repo-ul ca ZIP (fără git), îl pune în `D:\apps\renda-hud-chatgpt`, copiază calea în clipboard și deschide `chrome://extensions`. NU instalează niciun task; dacă găsește task-ul VECHI de update (de la instalările inițiale), îl șterge automat |
 | `sterge-task-vechi.bat` | Curățare pentru cine a instalat versiunile inițiale: șterge task-ul Windows „RENDA HUD Extension AutoUpdate" (mecanismul vechi de update, înlocuit de cel din browser). Dublu-click, sigur de rulat oricând |
 | `icon128.png` | Iconul oficial RENDA |
+| `install-mac.sh` | **Mac, echivalentul lui `remote_install.bat` + `bootstrap.ps1`**: o comandă în Terminal (`curl … \| bash`) descarcă repo-ul ca ZIP (fără git, fără Xcode), îl pune în `~/apps/renda-hud-chatgpt`, armează auto-update-ul (LaunchAgent la 10 minute), copiază calea în clipboard și deschide `chrome://extensions` (sau `edge://extensions`) |
+| `update-mac.sh` | **Mac, echivalentul lui `update.ps1`**: aceeași logică, aceleași verificări, același `version.txt` scris ultimul; rulat de LaunchAgent-ul `holdings.renda.hud.autoupdate`. Jurnal: `update.log` |
+| `opreste-auto-update-mac.sh` | **Mac, echivalentul lui `opreste-auto-update.bat`**: scoate LaunchAgent-ul; extensia rămâne instalată, la versiunea de atunci |
 
 ## Instalare
 
@@ -37,6 +40,37 @@ Tampermonkey trebuie să-l **dezactiveze** (altfel rulează ambele).
 
 Dezarhivezi într-un loc stabil, apoi aceiași pași din Chrome (Developer mode →
 Load unpacked; „Allow user scripts" rămâne opțional, doar pentru auto-update).
+
+## Instalare pe Mac (Chrome și Edge)
+
+Extensia e aceeași — fișierele din pachet nu au nimic specific Windows; doar instalarea și
+auto-update-ul pe disc au varianta lor de Mac. O singură comandă, de lipit în **Terminal**
+(Cmd+Space, scrie „Terminal", Enter):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/virgilprofeanu/renda-chatgpt-hud/main/install-mac.sh | bash
+```
+
+Descarcă extensia în `~/apps/renda-hud-chatgpt`, armează auto-update-ul și deschide Chrome
+(sau Edge, dacă Chrome lipsește) pe pagina de extensii, cu calea deja în clipboard. Apoi, în
+browser, o singură dată:
+
+1. Pornește **Developer mode** (dreapta-sus)
+2. **Load unpacked** → în fereastra de fișiere apasă **Cmd+Shift+G**, apoi **Cmd+V**, Enter → *Select*
+3. Gata — HUD-ul pornește fără nicio altă setare. Edge: aceiași pași la `edge://extensions`,
+   același folder. *Opțional*, pe Chrome/Edge 138+, „Allow user scripts" adaugă și auto-update-ul
+   din browser, exact ca pe Windows.
+
+**Auto-update pe Mac:** LaunchAgent-ul per-utilizator `holdings.renda.hud.autoupdate`
+(`~/Library/LaunchAgents/`) rulează `update-mac.sh` la 10 minute, fără fereastră — echivalentul
+task-ului Windows. Aceeași logică și aceleași verificări ca `update.ps1`; `background.js` vede
+`version.txt` mai nou și se reîncarcă singur, în Chrome și în Edge. Jurnal: `update.log`.
+Oprire: `bash ~/apps/renda-hud-chatgpt/opreste-auto-update-mac.sh`. Repornire: comanda de mai sus.
+
+De ce o comandă în Terminal și nu un fișier cu dublu-click: un `.command` descărcat de pe net
+e blocat de Gatekeeper („unidentified developer") și cere *Open Anyway* din System Settings;
+comanda de Terminal nu are problema asta. Safari nu încarcă extensii dintr-un folder, deci nu
+e acoperit de acest instalator.
 
 ## Cum funcționează auto-update-ul (pur în browser)
 
@@ -63,6 +97,8 @@ puntea de extensie, manifest valid, plasa `content_scripts`) și abia apoi îl c
 scriind `version.txt` ultimul. `background.js` citește `version.txt` de pe disc la fiecare minut și, dacă e mai nou
 decât versiunea care rulează, se reîncarcă singur — în fiecare browser care încarcă acel folder. Orice verificare
 picată = nu se scrie nimic. Jurnal: `update.log`. Oprire: `opreste-auto-update.bat`.
+
+Pe Mac, același mecanism: LaunchAgent + `update-mac.sh` + `opreste-auto-update-mac.sh` (vezi „Instalare pe Mac").
 
 Instalările făcute înainte de v4.36.0 nu au task-ul: se rulează o dată din nou `remote_install.bat`, apoi
 un singur Reload pe cardul extensiei, în fiecare browser (sau repornirea calculatorului; închiderea ferestrei
