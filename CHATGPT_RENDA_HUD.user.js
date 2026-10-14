@@ -636,7 +636,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-10-15-01:22:30';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-10-15-01:28:00';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   /*__RENDA_SABLOANE_DATA_START__*/
@@ -1661,10 +1661,12 @@
     const RV_SYN_LBL = ['juridic', 'contracte', 'urbanism', 'achiziții', 'financiar', 'mediu', 'patrimoniu', 'construcții', 'trafic', 'avize', 'energie', 'ape', 'teren', 'GIS', 'management', 'redactare', 'căutare', 'imagini', 'tabele', null, null, 'decizie', null, 'pornire', 'calcul', 'automatizări', 'prezentări', 'articole științifice'];
     const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const SYN_NORM = RV_SYN.map((g) => g.map(norm));
+    const SYN_SCURTE = new Set([].concat(...SYN_NORM).filter((t) => t.length <= 4));   // v4.44.0: termenii scurți rămân cuvinte întregi la căutare
     // un cuvant >=3 litere se extinde la toate grupurile in care se potriveste ca prefix
     function expandWord(w) {
       const out = new Set([w]);
-      if (w.length >= 3) SYN_NORM.forEach((g) => { if (g.some((t) => t.startsWith(w) || (w.length >= 4 && w.startsWith(t)))) g.forEach((t) => out.add(t)); });
+      // v4.44.0: 3 litere = numai potrivire exactă cu un termen (sea → mediu, nu și search); de la 4 litere, prefix în ambele sensuri
+      if (w.length >= 3) SYN_NORM.forEach((g) => { if (g.some((t) => (w.length === 3 ? t === w : t.startsWith(w)) || (w.length >= 4 && w.startsWith(t)))) g.forEach((t) => out.add(t)); });
       return [...out];
     }
     // variantele scurte se potrivesc restrictiv, ca "sea"/"ran" sa nu prinda "search"/"transcriere":
@@ -1675,9 +1677,12 @@
       return new RegExp('(^|[^a-z0-9])' + e + (v.length <= 3 ? '($|[^a-z0-9])' : '')).test(h);
     };
     function render() {
-      const qWords = norm(search.value || '').split(/\s+/).filter(Boolean).map(expandWord);
+      const qRaw = norm(search.value || '').split(/\s+/).filter(Boolean);
+      const qWords = qRaw.map(expandWord);
       // itemul trece daca FIECARE cuvant cautat (sau un sinonim al lui) apare in text
-      const hit = (hay) => { const h = norm(hay); return qWords.every((vars) => vars.some((v) => vHit(h, v))); };
+      // v4.44.0: cuvântul tastat (3+ litere) se potrivește și ca ÎNCEPUT de cuvânt («wol» găsește Wolfram, în timp ce tastezi);
+      // termenii scurți din sinonime (sea, ran, pug, gis…) rămân cuvinte întregi, ca «sea» să nu prindă «search».
+      const hit = (hay) => { const h = norm(hay); return qWords.every((vars, i) => vars.some((v) => vHit(h, v)) || (qRaw[i].length >= 3 && !SYN_SCURTE.has(qRaw[i]) && new RegExp('(^|[^a-z0-9])' + qRaw[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(h))); };
       const q = qWords.length ? '1' : '';
       let html = '';
       if (tab === 'agents' || tab === 'external') {
