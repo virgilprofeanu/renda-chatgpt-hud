@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.39.0
+// @version      4.40.0
 // PATCH 2026-09-25 (audit interfata NOUA ChatGPT "Chat | Work", verificat pe DOM-ul logat): (1) composer-ul
 // a pierdut #prompt-textarea — e un ProseMirror FARA id (div[contenteditable][role=textbox][aria-label="Ask
 // ChatGPT"][data-composer-markdown]) intr-un <form>; pe pagina fara login e <textarea id=mobile-composer-prompt>
@@ -776,7 +776,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-10-14-21:50:55';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-10-14-23:16:06';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   const TEMPLATES = [
@@ -1211,6 +1211,18 @@
     #renda-vigilia-shkn-panel .shkn-pct.low { color: #8a93a0; }
     #renda-vigilia-shkn-panel .shkn-body { flex-basis: 100%; display: none; margin-top: 6px; padding: 8px; max-height: 42vh; overflow: auto; white-space: pre-wrap; background: #0a0f16; border: 1px solid #1d2635; border-radius: 8px; color: #c9d2de; font: 11px 'Consolas',monospace; }
     #renda-vigilia-shkn-panel .shkn-body.open { display: block; }
+    #renda-vigilia-shkn-panel .shkn-newprop { margin: 0 0 6px; padding: 3px 9px; border: 1px solid rgba(186,117,23,.5); border-radius: 6px; color: #ffd27a; background: rgba(60,40,15,.5); cursor: pointer; font: 600 10.5px 'Segoe UI',sans-serif; }
+    #renda-vigilia-shkn-panel .shkn-prop { display: none; margin: 0 0 8px; padding: 8px; border: 1px solid rgba(186,117,23,.55); border-radius: 8px; background: #0d131c; }
+    #renda-vigilia-shkn-panel .shkn-prop.open { display: block; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-h { color: #ffe2b0; font-weight: 600; font-size: 11.5px; margin-bottom: 4px; }
+    #renda-vigilia-shkn-panel .shkn-prop label { display: block; color: #8a93a0; font-size: 10.5px; margin: 6px 0 2px; }
+    #renda-vigilia-shkn-panel .shkn-prop input, #renda-vigilia-shkn-panel .shkn-prop textarea { width: 100%; box-sizing: border-box; padding: 5px 7px; color: #e7e9ee; background: #131922; border: 1px solid #2a3242; border-radius: 6px; font: 11.5px 'Segoe UI',sans-serif; }
+    #renda-vigilia-shkn-panel .shkn-prop textarea { min-height: 150px; resize: vertical; font: 11px 'Consolas',monospace; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-act { display: flex; gap: 6px; margin-top: 8px; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-act button { padding: 4px 10px; border: 1px solid rgba(186,117,23,.5); border-radius: 6px; color: #ffd27a; background: rgba(60,40,15,.5); cursor: pointer; font: 600 10.5px 'Segoe UI',sans-serif; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-msg { color: #8a93a0; font-size: 10.5px; margin-top: 6px; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-msg.err { color: #ff9a8a; }
+    #renda-vigilia-shkn-panel .shkn-prop .sp-msg.ok { color: #7ee2a8; }
     #renda-vigilia-shkn-panel .ag-hint { color: #8a93a0; font-size: 10px; margin-top: 8px; }    #${HUD_ID} .rv-canon-btn.on { color: #8fd3ff; border-color: var(--rv-blue); background: rgba(55,138,221,.18); }
     #${HUD_ID} .rv-canon-btn.compact { color: #b9a7ff; border-color: var(--rv-violet); background: rgba(127,119,221,.18); }
     #${HUD_ID} .rv-canon-line {
@@ -1903,6 +1915,34 @@
       + '-----\n' + (it.b || '') + '\n-----\n'
       + '[END SHKN ' + (it.id || '?') + ']';
   }
+  // SHKN_PROPUNERE_FN_START — v4.40.0: fișierul de propunere al unui coleg, în forma fișelor din bancă
+  // (TITLU/OPERATOR/DATA/CAZ/EDITIE/TAGS, apoi --- și textul) + câmpurile PROPUNERE_*. Extensia nu trimite nimic:
+  // colegul trimite fișierul pe e-mail sau WhatsApp; primirea e mecanică (SHKN/shkn_propuneri.py, fără AI).
+  function shknPropFile(p) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const d = p.when || new Date();
+    const zi = pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+    const ora = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const one = (x) => String(x == null ? '' : x).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const baza = p.base ? String(p.base.id || '') : 'NOUA';
+    const slug = one(p.name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'coleg';
+    const fname = 'SHKN_PROPUNERE_' + baza + '_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + '_' + slug + '.md';
+    const head = [
+      'TITLU: ' + one(p.title || (p.base && p.base.t) || ''),
+      'OPERATOR: ' + one(p.name),
+      'DATA: ' + zi,
+      'CAZ: ' + one(p.base ? (p.base.cz || '') : (p.caz || '')),
+      'EDITIE: Propunere de la ' + one(p.name) + ', ' + zi + ' ' + ora + ', prin butonul «Propune» din extensia RENDA HUD ' + one(p.ver || '?') + ': ' + one(p.why),
+      'PROPUNERE_BAZA: ' + baza,
+      'PROPUNERE_BAZA_SHA16: ' + one(p.baseSha16 || ''),
+      'PROPUNERE_MOTIV: ' + one(p.why),
+      'PROPUNERE_EXTENSIE: ' + one(p.ver || '?'),
+      'TAGS: ',
+    ];
+    const body = String(p.text || '').replace(/\r\n/g, '\n').replace(/\s+$/, '');
+    return { name: fname, text: head.join('\n') + '\n---\n' + body + '\n' };
+  }
+  // SHKN_PROPUNERE_FN_END
   function buildShknPanel(hud) {
     let panel = document.getElementById(SHKN_PANEL_ID);
     if (panel) return panel;
@@ -1911,9 +1951,11 @@
     const items = (RV_SHKN.items || []);
     panel.innerHTML = '<button class="ag-close" type="button" aria-label="Închide">✕</button>'
       + '<h3>📚 SHKN — SHARED HUMAN KNOWLEDGE (' + items.length + ')</h3>'
+      + '<button class="shkn-newprop" type="button" title="Ai un prompt bun care nu e în bancă? Se descarcă un fișier pe care i-l trimiți lui Virgil Profeanu.">✍ Propune o fișă nouă</button>'
+      + '<div class="shkn-prop"></div>'
       + '<input class="ag-search" type="text" placeholder="spune nevoia ta sau numărul fișei (ex.: 0101) — rezultatele vin ordonate după potrivire">'
       + '<div class="ag-list"></div>'
-      + '<div class="ag-hint">👁 Vezi = deschide conținutul aici · 📋 Copiază = knowledge-ul ÎNCAPSULAT pentru AI (păstrează ideea generală; skill-urile se pot schimba — AI-ul își construiește propriul scenariu pe cererea ta).</div>';
+      + '<div class="ag-hint">👁 Vezi = deschide conținutul aici · 📋 Copiază = knowledge-ul ÎNCAPSULAT pentru AI (păstrează ideea generală; skill-urile se pot schimba — AI-ul își construiește propriul scenariu pe cererea ta). · ✍ Propune = descarci un fișier cu varianta ta și i-l trimiți lui Virgil Profeanu pe e-mail sau WhatsApp; extensia nu trimite nimic.</div>';
     document.body.appendChild(panel);
     const list = panel.querySelector('.ag-list');
     const search = panel.querySelector('.ag-search');
@@ -1963,12 +2005,57 @@
           + '</div><div class="ag-act">' + pct
           + '<button type="button" data-shkn-view="' + r.i + '">👁 Vezi</button>'
           + '<button type="button" class="amber" data-shkn-copy="' + r.i + '" title="Copiază knowledge-ul încapsulat pentru AI">📋 Copiază</button>'
+          + '<button type="button" data-shkn-prop="' + r.i + '" title="Ai adaptat fișa și merge mai bine? Se descarcă un fișier pe care i-l trimiți lui Virgil Profeanu.">✍ Propune</button>'
           + '</div><pre class="shkn-body" data-shkn-body="' + r.i + '"></pre></div>';
       });
       list.innerHTML = html || '<div class="ag-desc">' + (qWords.length ? 'nicio potrivire — încearcă alte cuvinte' : 'niciun knowledge încărcat încă') + '</div>';
     }
     panel.querySelector('.ag-close').addEventListener('click', () => panel.classList.remove('open'));
     search.addEventListener('input', render);
+    // v4.40.0: formularul «Propune» — numele (ținut local), ce s-a schimbat, textul; «Descarcă» = fișier pe calculatorul colegului.
+    const prop = panel.querySelector('.shkn-prop');
+    const PROP_NAME_KEY = 'renda_shkn_prop_name';
+    function openProp(it) {
+      let nm = ''; try { nm = localStorage.getItem(PROP_NAME_KEY) || ''; } catch (_) {}
+      prop.innerHTML = '<div class="sp-h">' + (it ? '✍ Propunere pentru fișa ' + esc(it.id) + ' — ' + esc(it.t) : '✍ Propunere pentru o fișă nouă') + '</div>'
+        + '<label>Numele tău</label><input class="sp-name" type="text" placeholder="prenume și nume" value="' + esc(nm) + '">'
+        + (it ? '' : '<label>Titlul fișei (scurt: ce face)</label><input class="sp-title" type="text" maxlength="110">'
+          + '<label>Când se folosește</label><input class="sp-caz" type="text">')
+        + '<label>Ce ai schimbat și de ce (un rând)</label><input class="sp-why" type="text">'
+        + '<label>' + (it ? 'Textul: modifică aici fișa sau lipește varianta ta' : 'Textul: lipește aici promptul') + '</label><textarea class="sp-text"></textarea>'
+        + '<div class="sp-act"><button type="button" class="sp-dl">⬇ Descarcă propunerea</button><button type="button" class="sp-cancel">Renunță</button></div>'
+        + '<div class="sp-msg">Se salvează un fișier pe calculatorul tău. Trimite-l lui Virgil Profeanu pe e-mail sau pe WhatsApp; extensia nu trimite nimic. Fișa intră în bancă numai după ce o vede el.</div>';
+      prop.querySelector('.sp-text').value = it ? (it.b || '') : '';
+      prop.classList.add('open');
+      try { prop.scrollIntoView({ block: 'nearest' }); } catch (_) {}
+      const msg = prop.querySelector('.sp-msg');
+      const say = (t, cls) => { msg.textContent = t; msg.className = 'sp-msg' + (cls ? ' ' + cls : ''); };
+      const val = (c) => { const e = prop.querySelector(c); return e ? e.value.trim() : ''; };
+      prop.querySelector('.sp-cancel').addEventListener('click', () => { prop.classList.remove('open'); prop.innerHTML = ''; });
+      prop.querySelector('.sp-dl').addEventListener('click', () => {
+        const name = val('.sp-name'), why = val('.sp-why'), text = prop.querySelector('.sp-text').value;
+        const title = it ? it.t : val('.sp-title');
+        if (!name) return say('Scrie-ți numele.', 'err');
+        if (!it && !title) return say('Scrie titlul fișei noi.', 'err');
+        if (!why) return say('Scrie într-un rând ce ai schimbat și de ce.', 'err');
+        if (!text.trim()) return say('Textul e gol.', 'err');
+        if (it && text.replace(/\r\n/g, '\n').trim() === String(it.b || '').trim()) return say('Textul e identic cu fișa din bancă: modifică-l întâi.', 'err');
+        try { localStorage.setItem(PROP_NAME_KEY, name); } catch (_) {}
+        const go = (sha16) => {
+          const f = shknPropFile({ base: it, name: name, why: why, text: text, title: title, caz: it ? null : val('.sp-caz'), baseSha16: sha16, ver: RUNNING_VER, when: new Date() });
+          const url = URL.createObjectURL(new Blob([f.text], { type: 'text/markdown;charset=utf-8' }));
+          const a = document.createElement('a'); a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+          say('✓ Descărcat: ' + f.name + '. Trimite-l lui Virgil Profeanu pe e-mail sau pe WhatsApp.', 'ok');
+        };
+        if (it && window.crypto && crypto.subtle && window.TextEncoder) {
+          crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(it.b || '').trim()))
+            .then((h) => go(Array.from(new Uint8Array(h)).slice(0, 8).map((x) => x.toString(16).padStart(2, '0')).join('')))
+            .catch(() => go(''));
+        } else go('');
+      });
+    }
+    panel.querySelector('.shkn-newprop').addEventListener('click', () => openProp(null));
     list.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
@@ -1979,6 +2066,9 @@
           pre.classList.toggle('open');
           b.textContent = pre.classList.contains('open') ? '👁 Închide' : '👁 Vezi';
         }
+      } else if (b.dataset.shknProp !== undefined) {
+        const it = items[+b.dataset.shknProp];
+        if (it) openProp(it);
       } else if (b.dataset.shknCopy !== undefined) {
         const it = items[+b.dataset.shknCopy];
         if (!it) return;
