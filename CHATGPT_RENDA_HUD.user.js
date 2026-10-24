@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         RENDA VIGILIA HUD pentru ChatGPT
 // @namespace    renda.vego.virgil.profeanu
-// @version      4.47.0
+// @version      4.47.1
 // PATCH 2026-09-25 (audit interfata NOUA ChatGPT "Chat | Work", verificat pe DOM-ul logat): (1) composer-ul
 // a pierdut #prompt-textarea — e un ProseMirror FARA id (div[contenteditable][role=textbox][aria-label="Ask
 // ChatGPT"][data-composer-markdown]) intr-un <form>; pe pagina fara login e <textarea id=mobile-composer-prompt>
@@ -636,7 +636,7 @@
     try { if (typeof __RENDA_VER__ !== 'undefined' && __RENDA_VER__) return __RENDA_VER__; } catch (_) {}
     try { return chrome.runtime.getManifest().version || '?'; } catch (_) { return '?'; }
   })();
-  const BUILD_STAMP = '2026-10-16-11:28:16';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
+  const BUILD_STAMP = '2026-10-24-17:34:09';   // aaaa-ll-zz-hh:mm:ss — se re-baga la fiecare release
 
   // Sabloane predefinite RENDA (pentru useri mai putin avansati) — click = inserat in composer.
   /*__RENDA_SABLOANE_DATA_START__*/
@@ -3017,20 +3017,34 @@
 
   function getBootIdentOn() { try { return localStorage.getItem(BOOT_IDENT_KEY) !== 'off'; } catch (_) { return true; } }
 
-  // Conversatie NOUA = zero mesaje randate la momentul trimiterii. Heuristica DOM, fara bookkeeping:
+  // Conversatie NOUA = zero mesaje ACTIVE la momentul trimiterii. Heuristica DOM, fara bookkeeping:
   // pe /c/<id> exista deja [data-message-author-role]; pe chat nou (inclusiv proiecte) nu exista inca.
   // 2026-09-25: ChatGPT nou NU mai pune data-message-author-role pe mesaje; turele au data-turn-key /
   // data-content-search-turn-key, raspunsul are h4[data-conversation-role], mesajul userului
   // data-user-message-bubble. Conversatia existenta sta pe /c/<id> (si /g/<gizmo>/c/<id>).
-  // Prima tura = niciun marker de tura in DOM SI URL fara /c/<id>. (Fara corectie, pe shell-ul nou
-  // BOOT-ul intra in FIECARE mesaj, nu doar in primul.)
+  // 2026-10-24: New chat pastreaza conversatiile vechi in workspace-uri display:none. Markerii
+  // lor NU inseamna ca noul chat are deja mesaje. Nu filtram dupa viewport/dimensiuni: turele
+  // active virtualizate sau in afara ecranului trebuie sa blocheze in continuare repetarea BOOT.
   const TURN_SEL = '[data-message-author-role], [data-message-id], [data-turn-key], [data-content-search-turn-key], '
     + '[data-conversation-role], [data-user-message-bubble], article[data-turn], [data-testid^="conversation-turn"]';
-  function isConversationUrl() { return /\/c\/[0-9a-f-]{8,}/i.test(location.pathname); }
+  // Include si URL-ul optimist /c/local-chatgpt... de dinaintea atribuirii ID-ului de server.
+  function isConversationUrl() { return /\/c\/[^/]+/i.test(location.pathname); }
+  function isActiveConversationTurn(el) {
+    for (let node = el; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (node.hidden || style.display === 'none' || style.visibility === 'hidden'
+          || style.visibility === 'collapse' || style.contentVisibility === 'hidden') return false;
+    }
+    return true;
+  }
   function isFirstMessageOfConversation() {
     try {
       if (isConversationUrl()) return false;
-      return !document.querySelector(TURN_SEL);
+      const turns = document.querySelectorAll(TURN_SEL);
+      for (let i = 0; i < turns.length; i++) {
+        if (isActiveConversationTurn(turns[i])) return false;
+      }
+      return true;
     } catch (_) { return false; }
   }
 
